@@ -34,9 +34,10 @@ echo $3
 #gunzip data/runA_*.fastq.gz
 
 #First let's basecall
-~/ont-guppy/bin/guppy_basecaller --input_path /mnt/data0/sam/dvg_drug_screen_ile/ --save_path /mnt/data0/sam/dvg_drug_screen_ile/quick_check/fastq_hac --config dna_r10.4.1_e8.2_400bps_hac -x cuda:all:100% --chunks_per_runner 1024 --recursive --calib_detect --do_read_splitting
+~/ont-guppy/bin/guppy_basecaller --input_path '/media/user/Lab Portab/dvg_dug_screen_ile_v2/no_sample/20230921_1151_MN23913_FAW91824_5830ce8e/' --save_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/ -c dna_r10.4.1_e8.2_400bps_hac.cfg -x cuda:all:100% --chunks_per_runner 1024 --recursive --calib_detect --do_read_splitting
 
 #Then let's demultiplex
+~/ont-guppy/bin/guppy_barcoder --require_barcodes_both_ends --input_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/ --save_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/double_barcodes/ --detect_mid_strand_barcodes --barcode_kits EXP-PBC096 -x cuda:all:100% --worker_threads 16 
 
 #Let us know it's done
 echo "Finished!"
