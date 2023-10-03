@@ -1,0 +1,610 @@
+---
+title: "DVG"
+output: html_notebook
+---
+
+# Pipeline 
+1. Basecall and Demultiplex
+2. UMI Deduplication and Chimera Detection
+  2.1 UMItools (use single UMI)
+  2.2 Karst Longread-UMI (double UMIs)
+3. Deletion and Junction Detection ##
+  3.1 Alignment Based (minimap2 alignment, SAM file) 
+  3.2 ViReMA (long read experimental)
+4. R Analyses
+
+## 1. Data
+
+Ie's drug screen experiment was run on Sam's desktop. The directory was  /Users/mixtup/MinION_reads/dvg_dug_screen_ile_v2 (sic)
+but since has been backed up to our lab Synology, which will be its permanent home:
+MMG-DiazMunoz/Data/MinION_reads/dvg_dug_screen_ile_v2/
+
+
+## 2. Basecall and Demultiplex
+
+Entire directory copied via portable drive (4TB "Lab Portable) and onto Rosalind for Basecalling and demultiplexing 
+
+```{bash}
+#Basecall commands
+~/ont-guppy/bin/guppy_basecaller --input_path '/media/user/Lab Portab/dvg_dug_screen_ile_v2/no_sample/20230921_1151_MN23913_FAW91824_5830ce8e/' --save_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/ -c dna_r10.4.1_e8.2_400bps_hac.cfg -x cuda:all:100% --chunks_per_runner 1024 --recursive --calib_detect --do_read_splitting
+
+#ONT Guppy basecalling software version 6.5.7+ca6d6af, minimap2 version 2.24-r1122
+#config file:        /home/user/ont-guppy/data/dna_r10.4.1_e8.2_400bps_hac.cfg
+#model file:         /home/user/ont-guppy/data/template_r10.4.1_e8.2_400bps_hac.jsn
+#input path:         /media/user/Lab Portab/dvg_dug_screen_ile_v2/no_sample/20230921_1151_MN23913_FAW91824_5830ce8e/
+#save path:          /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/
+#chunk size:         2000
+#chunks per runner:  1024
+#minimum qscore:     9
+#records per file:   4000
+#num basecallers:    4
+#gpu device:         cuda:all:100%
+#kernel path:        
+#runners per device: 4
+
+#Use of this software is permitted solely under the terms of the end user license agreement (EULA).
+#By running, copying or accessing this software, you are demonstrating your acceptance of the EULA.
+#The EULA may be found in /home/user/ont-guppy/bin
+#loading new index: /home/user/ont-guppy/data/lambda_3.6kb.fasta
+#Found 21294 input read files to process.
+#Init time: 24981 ms
+#
+#0%   10   20   30   40   50   60   70   80   90   100%
+#|----|----|----|----|----|----|----|----|----|----|
+#***************************************************
+#Caller time: 24913950 ms, Samples called: 263620048773, samples/s: 1.05812e+07
+#Finishing up any open output files.
+#Basecalling completed successfully.
+```
+
+FASTQ HAC Fail
+26485808 total lines
+*6,621,452 reads*
+FASTQ HAC Pass
+62210552 total lines
+*15,552,638 reads*
+*Pass read percentage 70.14% out of 22,174,090 total reads *
+
+
+```{bash}
+#Demultiplexing commands 
+
+#Started with Require both barcodes minimum scores F: 60, R: 40 
+
+~/ont-guppy/bin/guppy_barcoder --require_barcodes_both_ends --input_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass --save_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/double_barcodes_60_40/ --detect_mid_strand_barcodes --barcode_kits EXP-PBC096 --min_score_barcode_rear 40 --min_score_barcode_front 60 -x cuda:all:100% --worker_threads 32
+#ONT Guppy barcoding software version 6.5.7+ca6d6af
+#input path:         /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass
+#save path:          /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/double_barcodes_60_40/
+#min. score front:   60
+#min. score rear:    40
+#gpu device:         cuda:all:100%
+
+#Found 5324 input files.
+
+#0%   10   20   30   40   50   60   70   80   90   100%
+#|----|----|----|----|----|----|----|----|----|----|
+#***************************************************
+
+
+
+
+#Second, ran with Require both barcodes, but reduced minimum scores F: 40, R: 40 
+
+```
+
+
+## 3. Franklin HPC Setup and Data Upload
+
+```{bash}
+#Login to Franklin HPC
+ssh sldmunoz@franklin.hpc.ucdavis.edu
+
+#Have to load conda as a module
+module load conda/base
+
+
+#Slurm interactive
+srun -c 1 -t 12:00:00 --mem=10000 --pty /bin/bash
+
+#This job is just to set up data and working directories
+
+#Make directory in Franklin to put demultiplexed_basecalled reads
+cd /group/sldmunozgrp
+
+mkdir /group/sldmunozgrp/demultiplexed_basecalled/
+
+mkdir /group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
+
+#Moving data to Franklin into our lab folder
+#IN LOCAL TERMINAL
+#scp -rp /Users/mixtup/MinION_reads/demultiplexed_basecalled/double_barcodes_60_40 sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
+```
+
+```{bash}
+
+#Need to move this whole operation to scratch
+mkdir /scratch/dvg_drug_screen_ile_v2/
+mkdir /scratch/dvg_drug_screen_ile_v2/data/
+#Note this is on node c-7-70
+
+#Change into working directory
+cd /group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/double_barcodes_60_40/
+
+#Go through directories and make a single FASTQ per directory
+for barcode in *;
+do
+  cat ${barcode}/*.fastq > /scratch/dvg_drug_screen_ile_v2/data/${barcode}.fastq
+done
+
+#Change to working directory
+cd /scratch/dvg_drug_screen_ile_v2/
+
+wc -l data/barcode*.fastq | awk '{print $2 " , " $1/4}'
+
+wc -l data/barcode*.fastq | awk '{print $2 " , " $1/4}' > demultiplexed_data.csv
+```
+
+
+
+
+
+#Make an environment that will allow me to run *all* code that I need, start with ViReMA 
+#Going to start with a clean environment
+#Run once
+#conda create -n longread_UMI_DVG python=3.7
+
+conda activate longread_UMI_DVG
+
+
+#Need to move this whole operation to scratch
+#/scratch/sam/
+cp ~/longread_UMI_DVG/ile_test_run /scratch/
+
+```
+
+```{bash}
+#Now start a new interactive job with a bit more resources
+#Slurm interactive
+srun -c 2 -t 12:00:00 --mem=30000 --pty /bin/bash
+
+#Have to load conda as a module
+module load conda/base
+
+#Load GNU parallel
+module load parallel/20220522
+
+
+conda activate longread_UMI_DVG
+
+```
+
+
+## 2. UMI Deduplication and Chimera Detection
+
+###   2.1 UMItools (use single UMI)
+
+```{bash}
+#First let's trim to get the amplicons in shape for umitools
+
+conda activate longread_UMI_DVG
+
+#Now looking at tutorial from UMI tools
+
+#Going to give a whirl on the flu data
+#umi_tools is expecting the barcode at the beginnning of the 5' so will just trim with cutadapt and ignore the reverse reads
+
+#This loop goes through and finds reads that have perfect (i.e. 12nt) UMIs after landing pad trimming
+
+#First create the file
+ls -1 data/barcode*.fastq | cut -f 2 -d "/" > fastq_list.txt
+
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  #First get rid of ONT landing pad
+  cutadapt -a TTTCTGTTGGTGCTGATATTG...GAAGATAGAGCGACAGGCAAGT -a ACTTGCCTGTCGCTCTATCTTC...CAATATCAGCACCAACAGAAA -o ${prefix}_ont_landing_pad.fastq data/${file} --discard-untrimmed > ${prefix}_ont_landing_pad.txt
+  
+  #Report
+  grep "Total written (filtered):" *_ont_landing_pad.txt
+  
+  #Lets use the Karst trick and filter only the reads that are 12 bp
+  cutadapt -e 0.2 -O 8 -m 12 -M 12 \
+  --discard-untrimmed \
+  -a AGCAAAAGCAGG \
+  -a AGTAGAAACAAGG \
+  -o ${prefix}_perfect_trim.fastq \
+  ${prefix}_ont_landing_pad.fastq \
+  > ${prefix}_perfect_trim.log
+  
+  #Make a list
+  awk 'NR%4==1' ${prefix}_perfect_trim.fastq | cut -d' ' -f1 | cut -c 2- > ${prefix}_name.lst
+  
+  #Select reads with perfect UMIs
+  seqtk subseq ${prefix}_ont_landing_pad.fastq ${prefix}_name.lst > ${prefix}_perfect_umis.fastq
+  
+  #Check number of reads
+  wc -l ${prefix}_perfect_umis.fastq | awk '{print $1/4}'
+  
+  #Now check for well-formed uni primers, but don't trim
+  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -o final_${prefix}.fastq ${prefix}_perfect_umis.fastq --discard-untrimmed --action=none
+done
+
+#Count all the reads that have perfect UMIs 
+wc -l *_perfect_umis.fastq | awk '{print $2 " , " $1/4}' > perfect_umis.csv
+
+#Count and well formed UNI
+
+wc -l final_barcode*.fastq | awk '{print $2 " , " $1/4}' > perfect_umis_good_unis_data.csv
+
+
+#Paste files to make a demultiplexing and trimming summary file ## MAY WNAY 
+paste -d "," demultiplexed_data.csv perfect_umis.csv perfect_umis_good_unis_data.csv > demultiplexing_trimming_stats.csv
+
+
+#Now move on to umi_tools
+
+#Make new environment
+#Run once
+#conda create -n umi_tools_routh
+
+#Activate environment
+conda activate umi_tools_routh
+
+#Now install
+#Run once
+#conda install -c bioconda -c conda-forge umi_tools
+
+
+#This loop will extract UMIs for each of the FASTQs
+
+#First create the file
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  #Extract UMIs
+  umi_tools extract --stdin=final_${prefix}.fastq --bc-pattern=NNNNNNNNNNNN --log=${prefix}_umi_extract.log --stdout ${prefix}_umi_annotated.fastq
+done
+
+#So, with UMI tools have to map the reads first then it'll create groups. 
+#Need to know which reference to use with each barcode
+
+conda activate longread_UMI_DVG
+
+#Count reads
+wc -l *_umi_annotated.fastq | awk '{print $2 " , " $1/4}' 
+#Not saving because should be the same as before
+
+#Make a directory for references
+mkdir shared/
+
+#Moving padded references to Franklin
+#IN LOCAL TERMINAL
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/shared/*_reference_padded_both_sides.fasta sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/shared/
+
+#Moving references to Franklin
+#IN LOCAL TERMINAL
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/shared/*_reference.fasta sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/shared/
+
+#Moving references lists to Franklin
+#IN LOCAL TERMINAL
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/*_reference_samples.txt sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/
+
+#Now align to reference
+#Samples-reference correspondence hardcoded for now to save time
+#First CA09
+for file in `cat ca_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  minimap2 -ax map-ont shared/ca09_reference.fasta ${prefix}_umi_annotated.fastq  > ${prefix}_umi_annotated.sam
+
+  #Convert to BAM
+  samtools view -S -b ${prefix}_umi_annotated.sam > ${prefix}_umi_annotated.bam
+  #Sort BAM
+  samtools sort ${prefix}_umi_annotated.bam -o ${prefix}_umi_annotated.sorted.bam
+  samtools index ${prefix}_umi_annotated.sorted.bam
+done
+
+#Now align to reference
+#Samples-reference correspondence hardcoded for now to save time
+#Now TX12
+for file in `cat tx_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  minimap2 -ax map-ont shared/tx12_reference.fasta ${prefix}_umi_annotated.fastq  > ${prefix}_umi_annotated.sam
+
+  #Convert to BAM
+  samtools view -S -b ${prefix}_umi_annotated.sam > ${prefix}_umi_annotated.bam
+  #Sort BAM
+  samtools sort ${prefix}_umi_annotated.bam -o ${prefix}_umi_annotated.sorted.bam
+  samtools index ${prefix}_umi_annotated.sorted.bam
+done
+
+
+conda activate umi_tools_routh
+
+#First create the file
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+
+  #Now dedup command with UMI tools
+  umi_tools dedup -I ${prefix}_umi_annotated.sorted.bam --output-stats=deduplicated -S ${prefix}_deduplicated_umi_annotated.sorted.bam
+
+done
+
+conda activate longread_UMI_DVG
+
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+
+  #Index for viewing in IGV
+  samtools index ${prefix}_deduplicated_umi_annotated.sorted.bam
+
+  #Finally need to turn that BAM into a fastq for input into virema
+  samtools bam2fq ${prefix}_deduplicated_umi_annotated.sorted.bam > ${prefix}_deduplicated_umi_annotated.fastq
+
+#Check if the same number of reads
+  samtools view -c ${prefix}_deduplicated_umi_annotated.sorted.bam
+#119758
+
+  wc -l ${prefix}_deduplicated_umi_annotated.fastq | awk '{print $1/4}'
+#118519
+
+  #Why the difference?
+  #I may have secondary reads
+  #https://github.com/samtools/samtools/issues/522
+  #Your file has one secondary read, SN398:452:C7VUWACXX:5:2109:9603:96673, which is not making it to samtools's output.
+  
+  #Now need to trim the uni regions to get only the sequenced part (i.e. remove primers)
+
+  #Remove the uni regions and just leave the sequences
+  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed > ${prefix}__trimmed_deduplicated_umi_annotated.txt
+
+done
+```
+
+###   2.2 Karst Longread-UMI (double UMIs)
+
+## 3. Deletion and Junction Detection ##
+
+Now move on to Virema for deletion junction
+
+###   3.2 ViReMA (long read experimental) ##
+
+Make a script to run the ViReMa job
+
+```{bash}
+#!/usr/bin/env bash
+#SBATCH -c8
+#SBATCH --mem=40GB
+#SBATCH --time=12:00:00
+
+# we want the job to be named "myMatlabTest" rather than something generated
+# from the script name. This will affect the name of the job as reported
+# by squeue:
+#SBATCH --job-name=ca_virema
+#SBATCH --output=slurm_%j.out
+
+# when the job ends, send me an email at this email address.
+# replace with your email address, and uncomment that line if you really need to receive an email.
+##SBATCH --mail-type=END
+##SBATCH --mail-user=samdiazmunoz@ucdavis.edu
+
+# once the first non-comment, non-SBATCH-directive line is encountered, SLURM
+# stops looking for SBATCH directives. The remainder of the script is  executed
+# as a normal Unix shell script
+
+# first we ensure a clean running environment:
+module purge
+# and load the module for the software we are using:
+#Have to load conda as a module
+module load conda/base
+#Load GNU parallel
+module load parallel/20220522
+
+#Working directory
+#Change into working directory
+cd /scratch/ile_test_run 
+
+#Run once
+#mkdir virema_output
+#mkdir virema_output/adjusted_bedfiles
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+#Load parallel
+#Already loaded above 
+#module load parallel/20220522
+
+
+cat ca_reference_samples.txt | parallel -j +0 --progress --eta 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+
+#Let us know it's done
+echo "Finished!"
+```
+
+
+
+```{bash}
+#Now use ViReMa
+
+#Let's test this amount of resources
+srun -c 1 -t 12:00:00 --mem=10000 --pty /bin/bash
+
+#Working directory
+#Change into working directory
+cd /scratch/ile_test_run 
+
+#Run once
+#mkdir virema_output
+#mkdir virema_output/adjusted_bedfiles
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+#Load parallel
+#Already loaded above 
+#module load parallel/20220522
+
+
+cat ca_reference_samples.txt | parallel -j +0 --progress --eta 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+
+#First run didn't really complete apparently
+#Let's try with way more resources
+#srun -c 4 -t 24:00:00 --mem=80000 --pty /bin/bash
+
+
+#cat ca_reference_samples.txt | /usr/bin/parallel -j +0 --progress --eta 'echo {.}'
+
+#Adjust the BED files
+for file in `cat ca_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+
+#Need to adjust bedfile
+awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' virema_output/${prefix}_deduplicated_minimap/BED_Files/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed > virema_output/adjusted_bedfiles/${prefix}_adjusted_deduplicated_minimap_Virus_Recombination_Results.bed
+
+#Fix the first line of the BEDfile
+var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
+sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_adjusted_deduplicated_minimap_Virus_Recombination_Results.bed
+
+done
+
+#Copy results from scratch
+mkdir ~/longread_UMI_DVG/ile_test_run/virema_output
+mkdir ~/longread_UMI_DVG/ile_test_run/virema_output/adjusted_bedfiles/
+
+cp /scratch/ile_test_run/virema_output/adjusted_bedfiles/*.bed 
+
+#Download results
+scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/virema_output/adjusted_bedfiles/*.bed /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/franklin_output/adjusted_bedfiles/
+
+
+
+#Loop with minimap
+for file in `cat tx_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  python ~/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/${prefix}_deduplicated_minimap --Output_Tag ${prefix}_bwa_virema --Aligner minimap2 --ErrorDensity 25,2
+
+#Need to adjust bedfile
+awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' virema_output/${prefix}_bwa_virema/BED_Files/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed > virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
+
+#Fix the first line of the BEDfile
+var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
+sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
+
+done
+
+#Now align to reference
+#Samples-reference correspondence hardcoded for now to save time
+#First CA09
+for file in `cat ca_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/${prefix}_deduplicated_minimap --Output_Tag ${prefix}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2
+
+#Need to adjust bedfile
+awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' virema_output/${prefix}_bwa_virema/BED_Files/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed > virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
+
+#Fix the first line of the BEDfile
+var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
+sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
+
+done
+
+
+```
+
+Ok, so let's assume this is all good, there's going to be filtering and what not, but bascially I have some raw data. For Ile, he wants DVG to SVG ratios, so I need to figure out how many total mapped reads I have in the SAM file - need to figure out if the ViReMa SAM has the reads that don't have the features.
+
+
+```{bash}
+#This loop gets the per-segment read count for each file
+
+conda activate longread_UMI_DVG
+
+#Change to working directory
+cd /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft
+
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  samtools idxstats ${prefix}_deduplicated_umi_annotated.sorted.bam | cut -f 1,3 > ${prefix}_per_segment_read_count_deduplicated_umi_annotated.txt
+done
+
+
+
+#Looks like having a BAM file would be helpful
+
+cd /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/virema_output/bwa_trimmed_deduplicated_umi_annotated_barcode35_no_iters/
+
+#Convert to BAM
+samtools view -S -b bwa_deduplicated_umi_annotated_barcode35.SAM > bwa_deduplicated_umi_annotated_barcode35.bam
+
+#Index and sort
+samtools sort bwa_deduplicated_umi_annotated_barcode35.bam -o bwa_deduplicated_umi_annotated_barcode35.sorted.bam
+samtools index bwa_deduplicated_umi_annotated_barcode35.sorted.bam
+
+#Count reads per segment
+samtools idxstats bwa_deduplicated_umi_annotated_barcode35.sorted.bam | cut -f 1,3
+#NS|Segment:8	104232
+#M|Segment:7	95107
+#NA|Segment:6	35486
+#NP|Segment:5	36236
+#PB2|Segment:1	9836
+#HA|Segment:4	17957
+#PA|Segment:3	13208
+#PB1|Segment:2	5282
+#*	0
+
+#That is a total of 317,344 reads
+#That seems wrong, there were ~99k reads to begin with may be because of ViReMa output is different
+
+#Let's got to the original file
+cd /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft
+
+samtools view -c deduplicated_umi_annotated_barcode35.sorted.bam
+#99265
+
+#Now let's 
+samtools idxstats deduplicated_umi_annotated_barcode35.sorted.bam | cut -f 1,3
+#PB2|Segment:1	3388
+#HA|Segment:4	6377
+#M|Segment:7	30584
+#NA|Segment:6	11115
+#NP|Segment:5	11025
+#NS|Segment:8	30161
+#PA|Segment:3	4678
+#PB1|Segment:2	1937
+#*	0
+
+#That's a total of 99,265 perfect!
+
+#Now export to a text file for import to R
+samtools idxstats deduplicated_umi_annotated_barcode35.sorted.bam | cut -f 1,3 > per_segment_read_count_deduplicated_umi_annotated_barcode35.txt
+
+#Same for barcode 56
+samtools idxstats deduplicated_umi_annotated_barcode56.sorted.bam | cut -f 1,3 > per_segment_read_count_deduplicated_umi_annotated_barcode56.txt
+
+```
+
+
+Now let's go to R to check out the results. Here we will 
+
+May 10 2023 - Got to the end-ish. Now need to circle back to all samples and generate some prelim results for Ile and then generate some replicated figures from Alnaji et al 2023   
+
+## 4. R Analyses ##
+
+```{r}
+
+```
+
+
+
