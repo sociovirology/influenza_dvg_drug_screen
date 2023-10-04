@@ -385,11 +385,21 @@ do
   #Your file has one secondary read, SN398:452:C7VUWACXX:5:2109:9603:96673, which is not making it to samtools's output.
   
   #Now need to trim the uni regions to get only the sequenced part (i.e. remove primers)
-
-  #Remove the uni regions and just leave the sequences
-  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed > ${prefix}_trimmed_deduplicated_umi_annotated.txt
-
 done
+
+#Run once
+#mamba create --name cutadapt_stable cutadapt
+conda activate cutadapt_stable
+
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  #Remove anything beyond the uni regions
+  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -j 0 -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed --action retain > ${prefix}_trimmed_deduplicated_umi_annotated.txt
+done
+
+
 ```
 
 ###   2.2 Karst Longread-UMI (double UMIs)
