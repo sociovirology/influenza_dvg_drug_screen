@@ -84,11 +84,24 @@ FASTQ HAC Pass
 #0%   10   20   30   40   50   60   70   80   90   100%
 #|----|----|----|----|----|----|----|----|----|----|
 #***************************************************
-
-
+#Done in 18009466 ms.
 
 
 #Second, ran with Require both barcodes, but reduced minimum scores F: 40, R: 40 
+~/ont-guppy/bin/guppy_barcoder --require_barcodes_both_ends --input_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass --save_path /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/double_barcodes_40_40/ --detect_mid_strand_barcodes --barcode_kits EXP-PBC096 --min_score_barcode_rear 40 --min_score_barcode_front 40 -x cuda:all:100% --worker_threads 64
+#ONT Guppy barcoding software version 6.5.7+ca6d6af
+#input path:         /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass
+#save path:          /mnt/data0/sam/dvg_drug_screen_ile/fastq_hac/pass/double_barcodes_40_40/
+#min. score front:   40
+#min. score rear:    40
+#gpu device:         cuda:all:100%
+
+#Found 5324 input files.
+
+#0%   10   20   30   40   50   60   70   80   90   100%
+#|----|----|----|----|----|----|----|----|----|----|
+#***************************************************
+#Done in 15276975 ms.
 
 ```
 
@@ -136,36 +149,27 @@ do
   cat ${barcode}/*.fastq > /scratch/dvg_drug_screen_ile_v2/data/${barcode}.fastq
 done
 
+#Check how many reads we have unclassified
+wc -l unclassified/*.fastq | awk '{print $2 " , " $1/4}' | tail 
+#3,528,797
+#Lost >3.5 M reads to unclassified  
+
 #Change to working directory
 cd /scratch/dvg_drug_screen_ile_v2/
 
 wc -l data/barcode*.fastq | awk '{print $2 " , " $1/4}'
+#total , 12,023,841
+#Little over 12M reads total
 
 wc -l data/barcode*.fastq | awk '{print $2 " , " $1/4}' > demultiplexed_data.csv
 ```
 
 
 
-
-
-#Make an environment that will allow me to run *all* code that I need, start with ViReMA 
-#Going to start with a clean environment
-#Run once
-#conda create -n longread_UMI_DVG python=3.7
-
-conda activate longread_UMI_DVG
-
-
-#Need to move this whole operation to scratch
-#/scratch/sam/
-cp ~/longread_UMI_DVG/ile_test_run /scratch/
-
-```
-
 ```{bash}
 #Now start a new interactive job with a bit more resources
 #Slurm interactive
-srun -c 2 -t 12:00:00 --mem=30000 --pty /bin/bash
+srun -c 2 -t 12:00:00 --mem=80000 --pty /bin/bash
 
 #Have to load conda as a module
 module load conda/base
@@ -175,7 +179,6 @@ module load parallel/20220522
 
 
 conda activate longread_UMI_DVG
-
 ```
 
 
@@ -187,6 +190,9 @@ conda activate longread_UMI_DVG
 #First let's trim to get the amplicons in shape for umitools
 
 conda activate longread_UMI_DVG
+
+#Working directory
+cd /scratch/dvg_drug_screen_ile_v2/
 
 #Now looking at tutorial from UMI tools
 
@@ -276,20 +282,30 @@ conda activate longread_UMI_DVG
 wc -l *_umi_annotated.fastq | awk '{print $2 " , " $1/4}' 
 #Not saving because should be the same as before
 
-#Make a directory for references
-mkdir shared/
+cd ~/longread_UMI_DVG/
 
-#Moving padded references to Franklin
-#IN LOCAL TERMINAL
-#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/shared/*_reference_padded_both_sides.fasta sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/shared/
+mkdir dvg_drug_screen_ile_v2
+
+#Make a directory for references
+mkdir dvg_drug_screen_ile_v2/shared/
+
 
 #Moving references to Franklin
 #IN LOCAL TERMINAL
-#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/shared/*_reference.fasta sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/shared/
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/shared/*.fasta sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/shared
 
 #Moving references lists to Franklin
 #IN LOCAL TERMINAL
 #scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/*_reference_samples.txt sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/
+
+#Copy references
+cp /home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/shared /scratch/dvg_drug_screen_ile_v2/ -r
+
+cd /scratch/dvg_drug_screen_ile_v2/
+
+#Enter references manually
+vi ca_reference_samples.txt 
+
 
 #Now align to reference
 #Samples-reference correspondence hardcoded for now to save time
@@ -323,6 +339,16 @@ done
 
 
 conda activate umi_tools_routh
+
+#Before de-duplicating, want to look at the number of groups 
+for file in `cat fastq_list.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  
+  #Create flat file list of UMI groups
+  umi_tools group -I ${prefix}_umi_annotated.sorted.bam --paired --group-out=${prefix}_groups.tsv
+done
+
 
 #First create the file
 for file in `cat fastq_list.txt`;
@@ -361,7 +387,7 @@ do
   #Now need to trim the uni regions to get only the sequenced part (i.e. remove primers)
 
   #Remove the uni regions and just leave the sequences
-  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed > ${prefix}__trimmed_deduplicated_umi_annotated.txt
+  cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed > ${prefix}_trimmed_deduplicated_umi_annotated.txt
 
 done
 ```
@@ -606,5 +632,41 @@ May 10 2023 - Got to the end-ish. Now need to circle back to all samples and gen
 
 ```
 
+
+## 5. Determining References
+```{bash}
+ssh sldmunoz@crick.cse.ucdavis.edu
+srun -t12:00:00 -c6 --mem=30000 --pty /bin/bash
+source activate gbbseq-env
+module load usearch/8.1.1861
+
+mkdir ca09_tx12_references
+
+
+
+#Upload to Crick
+
+#Moving references lists to Franklin
+#IN LOCAL TERMINAL
+
+#CA09 alpha
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/barcode56_umi_annotated.fastq sldmunoz@crick.cse.ucdavis.edu:/home/sldmunoz/ca09_tx12_references
+
+#TX12 alpha
+#scp -rp /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/barcode80_umi_annotated.fastq sldmunoz@crick.cse.ucdavis.edu:/home/sldmunoz/ca09_tx12_references
+
+#Now cluster with usearch
+usearch -cluster_fast barcode56_umi_annotated.fastq -id 0.99 -sort size -consout ca09_consensus.fasta -uc ca09_clusters.uc
+
+#Make fasta sequence be on one line
+awk '/^>/ {printf("\n%s\n",$0);next;} { printf("%s",$0);}  END {printf("\n");}' ca09_consensus.fasta | tail -n +2 > ca09_consensus_multiline.fasta
+
+
+grep "^C" ca09_clusters.uc | awk '{print $3}' | sort -n -r | head -1
+
+
+awk '/^>/ {printf("\n%s\n",$0);next;} { printf("%s",$0);}  END {printf("\n");}' ca09_reference_uni.fasta | tail -n +2 > ca09_reference_uni_multiline.fasta
+
+```
 
 
