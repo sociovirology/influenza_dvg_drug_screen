@@ -356,9 +356,28 @@ do
   prefix=${file%.fastq} #Get file name without extension
 
   #Now dedup command with UMI tools
-  umi_tools dedup -I ${prefix}_umi_annotated.sorted.bam --output-stats=deduplicated -S ${prefix}_deduplicated_umi_annotated.sorted.bam
+  umi_tools dedup -I ${prefix}_umi_annotated.sorted.bam -S ${prefix}_deduplicated_umi_annotated.sorted.bam
 
 done
+
+############### #Fix because of barcode1 instead of barcode01 ###############
+sed 's/'.fastq'//g' fastq_list.txt | head -n 9 | parallel -j +0 --progress 'minimap2 -ax map-ont shared/ca09_reference.fasta {.}_umi_annotated.fastq  > {.}_umi_annotated.sam'
+
+sed 's/'.fastq'//g' fastq_list.txt | head -n 9 | parallel -j +0 --progress 'samtools view -S -b {.}_umi_annotated.sam > {.}_umi_annotated.bam'
+
+sed 's/'.fastq'//g' fastq_list.txt | head -n 9 | parallel -j +0 --progress 'samtools sort {.}_umi_annotated.bam -o {.}_umi_annotated.sorted.bam'
+
+sed 's/'.fastq'//g' fastq_list.txt | head -n 9 | parallel -j +0 --progress 'samtools index ${.}_umi_annotated.sorted.bam'    
+  
+
+  
+cat fastq_list.txt | parallel -j +0 --progress 'umi_tools dedup -I {.}_umi_annotated.sorted.bam -S {.}_deduplicated_umi_annotated.sorted.bam'
+
+umi_tools dedup -I barcode84_umi_annotated.sorted.bam -S barcode84_deduplicated_umi_annotated.sorted.bam
+
+
+############### #End fix ####################
+
 
 conda activate longread_UMI_DVG
 
@@ -398,9 +417,13 @@ do
   #Remove anything beyond the uni regions
   cutadapt -a AGCAAAAGCAGG...CCTTGTTTCTACT -a AGTAGAAACAAGG...CCTGCTTTTGC -j 0 -o ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_umi_annotated.fastq --discard-untrimmed --action retain > ${prefix}_trimmed_deduplicated_umi_annotated.txt
 done
-
-
 ```
+
+
+
+
+
+
 
 ###   2.2 Karst Longread-UMI (double UMIs)
 
@@ -412,11 +435,14 @@ Now move on to Virema for deletion junction
 
 Make a script to run the ViReMa job
 
+vi ca_virema.sh
+
 ```{bash}
 #!/usr/bin/env bash
-#SBATCH -c8
-#SBATCH --mem=40GB
+#SBATCH -c48
+#SBATCH --mem=10GB
 #SBATCH --time=12:00:00
+#SBATCH -w c-7-70
 
 # we want the job to be named "myMatlabTest" rather than something generated
 # from the script name. This will affect the name of the job as reported
@@ -443,7 +469,7 @@ module load parallel/20220522
 
 #Working directory
 #Change into working directory
-cd /scratch/ile_test_run 
+/scratch/dvg_drug_screen_ile_v2 
 
 #Run once
 #mkdir virema_output
@@ -452,18 +478,94 @@ cd /scratch/ile_test_run
 #Load the environment for virema!
 conda activate longread_UMI_DVG
 
-#Load parallel
-#Already loaded above 
-#module load parallel/20220522
-
-
-cat ca_reference_samples.txt | parallel -j +0 --progress --eta 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+cat ca_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
 
 #Let us know it's done
 echo "Finished!"
 ```
 
+Check on status
 
+```{bash}
+#Submit job
+sbatch ca_virema.sh
+
+#Check on job status
+squeue -u sldmunoz
+
+#See if Virema is running
+ls virema_output/barcode*_deduplicated_minimap/ -al
+
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/
+
+```
+
+Now work on the Texas samples. Use that compute!
+
+vi tx_virema.sh
+
+```{bash}
+#!/usr/bin/env bash
+#SBATCH -c48
+#SBATCH --mem=10GB
+#SBATCH --time=12:00:00
+#SBATCH -w c-7-70
+
+# we want the job to be named "myMatlabTest" rather than something generated
+# from the script name. This will affect the name of the job as reported
+# by squeue:
+#SBATCH --job-name=tx_virema
+#SBATCH --output=slurm_%j.out
+
+# when the job ends, send me an email at this email address.
+# replace with your email address, and uncomment that line if you really need to receive an email.
+##SBATCH --mail-type=END
+##SBATCH --mail-user=samdiazmunoz@ucdavis.edu
+
+# once the first non-comment, non-SBATCH-directive line is encountered, SLURM
+# stops looking for SBATCH directives. The remainder of the script is  executed
+# as a normal Unix shell script
+
+# first we ensure a clean running environment:
+module purge
+# and load the module for the software we are using:
+#Have to load conda as a module
+module load conda/base
+#Load GNU parallel
+module load parallel/20220522
+
+#Working directory
+#Change into working directory
+/scratch/dvg_drug_screen_ile_v2 
+
+#Run once
+#mkdir virema_output
+#mkdir virema_output/adjusted_bedfiles
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+cat tx_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+
+#Let us know it's done
+echo "Finished!"
+```
+
+Check on status
+
+```{bash}
+#Submit job
+sbatch tx_virema.sh
+
+#Check on job status
+squeue -u sldmunoz
+
+#See if Virema is running
+ls virema_output/barcode*_deduplicated_minimap/ -al
+
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/
+
+```
 
 ```{bash}
 #Now use ViReMa
