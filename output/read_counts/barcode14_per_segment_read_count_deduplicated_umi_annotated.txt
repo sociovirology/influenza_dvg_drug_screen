@@ -1,0 +1,9 @@
+NP|Segment:5	2441
+NA|Segment:6	2543
+PB2|Segment:1	1131
+PB1|Segment:2	715
+HA|Segment:4	2085
+NS|Segment:8	1641
+M|Segment:7	7960
+PA|Segment:3	1656
+*	0

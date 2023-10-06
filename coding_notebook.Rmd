@@ -130,8 +130,16 @@ mkdir /group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
 
 #Moving data to Franklin into our lab folder
 #IN LOCAL TERMINAL
-#scp -rp /Users/mixtup/MinION_reads/demultiplexed_basecalled/double_barcodes_60_40 sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
+#60_40
+#scp -rp /Users/mixtup/MinION_reads/demultiplexed_basecalled/dvg_drug_screen_ile_v2/double_barcodes_60_40 sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
+
+#40_40
+#scp -rp /Users/mixtup/MinION_reads/demultiplexed_basecalled/dvg_drug_screen_ile_v2/double_barcodes_40_40 sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/demultiplexed_basecalled/dvg_drug_screen_ile_v2/
+
 ```
+
+
+Continuing below with double_barcodes_60_40 data
 
 ```{bash}
 
@@ -496,7 +504,7 @@ squeue -u sldmunoz
 #See if Virema is running
 ls virema_output/barcode*_deduplicated_minimap/ -al
 
-ls virema_output/barcode*_deduplicated_minimap/BED_Files/
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
 
 ```
 
@@ -507,7 +515,7 @@ vi tx_virema.sh
 ```{bash}
 #!/usr/bin/env bash
 #SBATCH -c48
-#SBATCH --mem=10GB
+#SBATCH --mem=50GB
 #SBATCH --time=12:00:00
 #SBATCH -w c-7-70
 
@@ -563,7 +571,9 @@ squeue -u sldmunoz
 #See if Virema is running
 ls virema_output/barcode*_deduplicated_minimap/ -al
 
-ls virema_output/barcode*_deduplicated_minimap/BED_Files/
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
+
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al | wc -l
 
 ```
 
@@ -598,8 +608,12 @@ cat ca_reference_samples.txt | parallel -j +0 --progress --eta 'python ~/applica
 
 #cat ca_reference_samples.txt | /usr/bin/parallel -j +0 --progress --eta 'echo {.}'
 
+cd /scratch/dvg_drug_screen_ile_v2
+#Make sure the adjusted bedfiles are in their own field
+mkdir virema_output/adjusted_bedfiles
+
 #Adjust the BED files
-for file in `cat ca_reference_samples.txt`;
+for file in `cat tx_reference_samples.txt`;
 do
   prefix=${file%.fastq} #Get file name without extension
 
@@ -612,51 +626,14 @@ sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_adjusted_deduplic
 
 done
 
-#Copy results from scratch
-mkdir ~/longread_UMI_DVG/ile_test_run/virema_output
-mkdir ~/longread_UMI_DVG/ile_test_run/virema_output/adjusted_bedfiles/
+#Copy results from scratch to home
+mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output
+mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/
 
-cp /scratch/ile_test_run/virema_output/adjusted_bedfiles/*.bed 
+cp /scratch/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/*.bed ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/
 
 #Download results
-scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/ile_test_run/virema_output/adjusted_bedfiles/*.bed /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft/franklin_output/adjusted_bedfiles/
-
-
-
-#Loop with minimap
-for file in `cat tx_reference_samples.txt`;
-do
-  prefix=${file%.fastq} #Get file name without extension
-  
-  python ~/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/${prefix}_deduplicated_minimap --Output_Tag ${prefix}_bwa_virema --Aligner minimap2 --ErrorDensity 25,2
-
-#Need to adjust bedfile
-awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' virema_output/${prefix}_bwa_virema/BED_Files/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed > virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
-
-#Fix the first line of the BEDfile
-var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
-sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
-
-done
-
-#Now align to reference
-#Samples-reference correspondence hardcoded for now to save time
-#First CA09
-for file in `cat ca_reference_samples.txt`;
-do
-  prefix=${file%.fastq} #Get file name without extension
-  
-  python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq ${prefix}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/${prefix}_deduplicated_minimap --Output_Tag ${prefix}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2
-
-#Need to adjust bedfile
-awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' virema_output/${prefix}_bwa_virema/BED_Files/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed > virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
-
-#Fix the first line of the BEDfile
-var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
-sed -i "1s/.*/$var/" virema_output/adjusted_bedfiles/${prefix}_deduplicated_minimap_Virus_Recombination_Results.bed
-
-done
-
+scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/*.bed  /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/virema_output/adjusted_bedfiles/
 
 ```
 
@@ -669,7 +646,7 @@ Ok, so let's assume this is all good, there's going to be filtering and what not
 conda activate longread_UMI_DVG
 
 #Change to working directory
-cd /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/pipeline_draft
+cd /scratch/dvg_drug_screen_ile_v2
 
 for file in `cat fastq_list.txt`;
 do
@@ -677,7 +654,20 @@ do
   samtools idxstats ${prefix}_deduplicated_umi_annotated.sorted.bam | cut -f 1,3 > ${prefix}_per_segment_read_count_deduplicated_umi_annotated.txt
 done
 
+#Copy demultiplexing stats to home folder
+cp demultiplexing_trimming_stats.csv ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/
 
+#Download
+#LOCAL TERMINAL
+#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/demultiplexing_trimming_stats.csv /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/
+
+#Make dir for read count files
+mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/
+
+#Copy read count file
+cp *_per_segment_read_count_deduplicated_umi_annotated.txt ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/
+
+#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/*_per_segment_read_count_deduplicated_umi_annotated.txt /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/read_counts/
 
 #Looks like having a BAM file would be helpful
 

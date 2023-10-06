@@ -1,0 +1,9 @@
+PB2|Segment:1	0
+HA|Segment:4	0
+M|Segment:7	0
+NA|Segment:6	0
+NP|Segment:5	0
+NS|Segment:8	0
+PA|Segment:3	0
+PB1|Segment:2	0
+*	0
