@@ -1,9 +1,9 @@
-PB2|Segment:1	1104
-HA|Segment:4	2162
-M|Segment:7	10060
-NA|Segment:6	3747
-NP|Segment:5	3759
-NS|Segment:8	9379
-PA|Segment:3	1259
-PB1|Segment:2	466
+PB2|Segment:1	1009
+HA|Segment:4	2116
+M|Segment:7	9963
+NA|Segment:6	3696
+NP|Segment:5	3670
+NS|Segment:8	9337
+PA|Segment:3	1113
+PB1|Segment:2	419
 *	0

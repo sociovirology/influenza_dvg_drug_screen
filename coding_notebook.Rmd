@@ -571,9 +571,14 @@ squeue -u sldmunoz
 #See if Virema is running
 ls virema_output/barcode*_deduplicated_minimap/ -al
 
-ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
+ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
 
-ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al | wc -l
+ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al | wc -l
+
+
+ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al
+
+ls virema_output/barcode*_deduplicated_minimap*/BED_Files/
 
 ```
 
@@ -632,6 +637,10 @@ mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/
 
 cp /scratch/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/*.bed ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/
 
+#Download results non-adjusted
+scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/oct11_bedfiles_not_adjusted/
+
+
 #Download results
 scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/*.bed  /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/virema_output/adjusted_bedfiles/
 
@@ -646,12 +655,16 @@ Ok, so let's assume this is all good, there's going to be filtering and what not
 conda activate longread_UMI_DVG
 
 #Change to working directory
-cd /scratch/dvg_drug_screen_ile_v2
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
 
 for file in `cat fastq_list.txt`;
 do
   prefix=${file%.fastq} #Get file name without extension
-  samtools idxstats ${prefix}_deduplicated_umi_annotated.sorted.bam | cut -f 1,3 > ${prefix}_per_segment_read_count_deduplicated_umi_annotated.txt
+  
+  samtools view -F 0x904 -b ${prefix}_deduplicated_umi_annotated.sorted.bam > ${prefix}_primary_deduplicated_umi_annotated.bam
+  samtools index ${prefix}_primary_deduplicated_umi_annotated.bam
+  
+  samtools idxstats ${prefix}_primary_deduplicated_umi_annotated.bam | cut -f 1,3 > ${prefix}_primary_per_segment_read_count_deduplicated_umi_annotated.txt
 done
 
 #Copy demultiplexing stats to home folder
@@ -659,7 +672,7 @@ cp demultiplexing_trimming_stats.csv ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/
 
 #Download
 #LOCAL TERMINAL
-#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/demultiplexing_trimming_stats.csv /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/
+#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/demultiplexing_trimming_stats.csv /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/
 
 #Make dir for read count files
 mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/
@@ -667,7 +680,7 @@ mkdir ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/
 #Copy read count file
 cp *_per_segment_read_count_deduplicated_umi_annotated.txt ~/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/
 
-#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/read_counts/*_per_segment_read_count_deduplicated_umi_annotated.txt /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/read_counts/
+#scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/*_per_segment_read_count_deduplicated_umi_annotated.txt /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/read_counts/
 
 #Looks like having a BAM file would be helpful
 

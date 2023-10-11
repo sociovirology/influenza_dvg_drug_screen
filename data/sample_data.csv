@@ -1,0 +1,97 @@
+﻿barcode,sample,well_position,control,group,strain_name,strain,treatment,bioreplicate,cdna_concentration
+barcode49,CA09_Leptolyngbya,E1,,,CA09 _P6_London,CA09,Leptolyngbya,1,60
+barcode50,CA09_Tolypothrix,E2,,,CA09 _P6_London,CA09,Tolypothrix,1,60
+barcode51,CA09_Uridine,E3,,,CA09 _P6_London,CA09,Uridine,1,60
+barcode52,mock-ifxd_veh_DMSO,E4,negative,,CA09 _P6_London,mock-ifxd,veh_DMSO,1,48.53
+barcode53,CA09_Leptolyngbya,E5,,,CA09 _P6_London,CA09,Leptolyngbya,2,60
+barcode54,CA09_Tolypothrix,E6,,,CA09 _P6_London,CA09,Tolypothrix,2,60
+barcode55,CA09_Uridine,E7,,,CA09 _P6_London,CA09,Uridine,2,60
+barcode56,mock-ifxd_veh_DMSO,E8,negative,,CA09 _P6_London,mock-ifxd,veh_DMSO,2,30.59
+barcode57,CA09_Leptolyngbya,E9,,,CA09 _P6_London,CA09,Leptolyngbya,3,34.96
+barcode58,CA09_Tolypothrix,E10,,,CA09 _P6_London,CA09,Tolypothrix,3,60
+barcode59,CA09_Uridine,E11,,,CA09 _P6_London,CA09,Uridine,3,60
+barcode60,mock-ifxd_veh_DMSO,E12,negative,,CA09 _P6_London,mock-ifxd,veh_DMSO,3,4.03
+barcode61,CA09_Alpelisib,F1,,,CA09 _P6_London,CA09,Alpelisib,1,60
+barcode62,CA09_Synecho,F2,,,CA09 _P6_London,CA09,Synecho,1,60
+barcode63,CA09_Adenosine,F3,,,CA09 _P6_London,CA09,Adenosine,1,60
+barcode64,CA09_Favipiravir,F4,,,CA09 _P6_London,CA09,Favipiravir,1,60
+barcode65,CA09_Alpelisib,F5,,,CA09 _P6_London,CA09,Alpelisib,2,60
+barcode66,CA09_Synecho,F6,,,CA09 _P6_London,CA09,Synecho,2,60
+barcode67,CA09_Adenosine,F7,,,CA09 _P6_London,CA09,Adenosine,2,60
+barcode68,CA09_Favipiravir,F8,,,CA09 _P6_London,CA09,Favipiravir,2,60
+barcode69,CA09_Alpelisib,F9,,,CA09 _P6_London,CA09,Alpelisib,3,14.72
+barcode70,CA09_Synecho,F10,,,CA09 _P6_London,CA09,Synecho,3,33.58
+barcode71,CA09_Adenosine,F11,,,CA09 _P6_London,CA09,Adenosine,3,60
+barcode72,CA09_Favipiravir,F12,,,CA09 _P6_London,CA09,Favipiravir,3,23.92
+barcode73,CA09_veh_water,G1,no_treatment,,CA09 _P6_London,CA09,veh_water,1,60
+barcode74,CA09_Oscillatoria,G2,,,CA09 _P6_London,CA09,Oscillatoria,1,60
+barcode75,CA09_Insulin,G3,,,CA09 _P6_London,CA09,Insulin,1,60
+barcode76,CA09_UK5099,G4,,,CA09 _P6_London,CA09,UK5099,1,60
+barcode77,CA09_veh_water,G5,no_treatment,,CA09 _P6_London,CA09,veh_water,2,60
+barcode78,CA09_Oscillatoria,G6,,,CA09 _P6_London,CA09,Oscillatoria,2,60
+barcode79,CA09_Insulin,G7,,,CA09 _P6_London,CA09,Insulin,2,60
+barcode80,CA09_UK5099,G8,,,CA09 _P6_London,CA09,UK5099,2,60
+barcode81,CA09_veh_water,G9,no_treatment,,CA09 _P6_London,CA09,veh_water,3,36.11
+barcode82,CA09_Oscillatoria,G10,,,CA09 _P6_London,CA09,Oscillatoria,3,60
+barcode83,CA09_Insulin,G11,,,CA09 _P6_London,CA09,Insulin,3,60
+barcode84,CA09_UK5099,G12,,,CA09 _P6_London,CA09,UK5099,3,31.74
+barcode85,CA09_veh_DMSO,H1,no_treatment,,CA09 _P6_London,CA09,veh_DMSO,1,60
+barcode86,CA09_Nostoc,H2,,,CA09 _P6_London,CA09,Nostoc,1,60
+barcode87,CA09_MK2206,H3,,,CA09 _P6_London,CA09,MK2206,1,60
+barcode88,CA09_4-OI,H4,,,CA09 _P6_London,CA09,4-OI,1,60
+barcode89,CA09_veh_DMSO,H5,,,CA09 _P6_London,CA09,veh_DMSO,2,60
+barcode90,CA09_Nostoc,H6,,,CA09 _P6_London,CA09,Nostoc,2,60
+barcode91,CA09_MK2206,H7,,,CA09 _P6_London,CA09,MK2206,2,60
+barcode92,CA09_4-OI,H8,,,CA09 _P6_London,CA09,4-OI,2,60
+barcode93,CA09_veh_DMSO,H9,no_treatment,,CA09 _P6_London,CA09,veh_DMSO,3,51.89
+barcode94,CA09_Nostoc,H10,,,CA09 _P6_London,CA09,Nostoc,3,60
+barcode95,CA09_MK2206,H11,,,CA09 _P6_London,CA09,MK2206,3,57.5
+barcode96,CA09_4-OI,H12,,,CA09 _P6_London,CA09,4-OI,3,31.05
+barcode01,TX12_Leptolyngbya,A1,,,TX12_P4c,TX12,Leptolyngbya,1,60
+barcode02,TX12_Tolypothrix,A2,,,TX12_P4c,TX12,Tolypothrix,1,60
+barcode03,TX12_Uridine,A3,,,TX12_P4c,TX12,Uridine,1,60
+barcode04,TX12_Favipiravir,A4,,,TX12_P4c,TX12,Favipiravir,1,60
+barcode05,TX12_Leptolyngbya,A5,,,TX12_P4c,TX12,Leptolyngbya,2,60
+barcode06,TX12_Tolypothrix,A6,,,TX12_P4c,TX12,Tolypothrix,2,60
+barcode07,TX12_Uridine,A7,,,TX12_P4c,TX12,Uridine,2,60
+barcode08,TX12_Favipiravir,A8,,,TX12_P4c,TX12,Favipiravir,2,60
+barcode09,TX12_Leptolyngbya,A9,,,TX12_P4c,TX12,Leptolyngbya,3,20.24
+barcode10,TX12_Tolypothrix,A10,,,TX12_P4c,TX12,Tolypothrix,3,60
+barcode11,TX12_Uridine,A11,,,TX12_P4c,TX12,Uridine,3,60
+barcode12,TX12_Favipiravir,A12,,,TX12_P4c,TX12,Favipiravir,3,14.61
+barcode13,TX12_Alpelisib,B1,,,TX12_P4c,TX12,Alpelisib,1,60
+barcode14,TX12_Synecho,B2,,,TX12_P4c,TX12,Synecho,1,60
+barcode15,TX12_Adenosine,B3,,,TX12_P4c,TX12,Adenosine,1,60
+barcode16,TX12_UK5099,B4,,,TX12_P4c,TX12,UK5099,1,60
+barcode17,TX12_Alpelisib,B5,,,TX12_P4c,TX12,Alpelisib,2,60
+barcode18,TX12_Synecho,B6,,,TX12_P4c,TX12,Synecho,2,60
+barcode19,TX12_Adenosine,B7,,,TX12_P4c,TX12,Adenosine,2,60
+barcode20,TX12_UK5099,B8,,,TX12_P4c,TX12,UK5099,2,60
+barcode21,TX12_Alpelisib,B9,,,TX12_P4c,TX12,Alpelisib,3,55.89
+barcode22,TX12_Synecho,B10,,,TX12_P4c,TX12,Synecho,3,60
+barcode23,TX12_Adenosine,B11,,,TX12_P4c,TX12,Adenosine,3,60
+barcode24,TX12_UK5099,B12,,,TX12_P4c,TX12,UK5099,3,22.66
+barcode25,TX12_veh_water,C1,no_treatment,,TX12_P4c,TX12,veh_water,1,60
+barcode26,TX12_Oscillatoria,C2,,,TX12_P4c,TX12,Oscillatoria,1,60
+barcode27,TX12_Insulin,C3,,,TX12_P4c,TX12,Insulin,1,60
+barcode28,TX12_4-OI,C4,,,TX12_P4c,TX12,4-OI,1,60
+barcode29,TX12_veh_water,C5,no_treatment,,TX12_P4c,TX12,veh_water,2,60
+barcode30,TX12_Oscillatoria,C6,,,TX12_P4c,TX12,Oscillatoria,2,60
+barcode31,TX12_Insulin,C7,,,TX12_P4c,TX12,Insulin,2,60
+barcode32,TX12_4-OI,C8,,,TX12_P4c,TX12,4-OI,2,60
+barcode33,TX12_veh_water,C9,no_treatment,,TX12_P4c,TX12,veh_water,3,39.1
+barcode34,TX12_Oscillatoria,C10,,,TX12_P4c,TX12,Oscillatoria,3,60
+barcode35,TX12_Insulin,C11,,,TX12_P4c,TX12,Insulin,3,60
+barcode36,TX12_4-OI,C12,,,TX12_P4c,TX12,4-OI,3,13.8
+barcode37,TX12_veh_DMSO,D1,no_treatment,,TX12_P4c,TX12,veh_DMSO,1,60
+barcode38,TX12_Nostoc,D2,,,TX12_P4c,TX12,Nostoc,1,60
+barcode39,TX12_MK2206,D3,,,TX12_P4c,TX12,MK2206,1,60
+barcode40,mock-ifxd_veh_water,D4,negative,,TX12_P4c,mock-ifxd,veh_water,1,51.98
+barcode41,TX12_veh_DMSO,D5,no_treatment,,TX12_P4c,TX12,veh_DMSO,2,60
+barcode42,TX12_Nostoc,D6,,,TX12_P4c,TX12,Nostoc,2,60
+barcode43,TX12_MK2206,D7,,,TX12_P4c,TX12,MK2206,2,60
+barcode44,mock-ifxd_veh_water,D8,negative,,TX12_P4c,mock-ifxd,veh_water,2,54.74
+barcode45,TX12_veh_DMSO,D9,no_treatment,,TX12_P4c,TX12,veh_DMSO,3,27.6
+barcode46,TX12_Nostoc,D10,,,TX12_P4c,TX12,Nostoc,3,60
+barcode47,TX12_MK2206,D11,,,TX12_P4c,TX12,MK2206,3,60
+barcode48,mock-ifxd_veh_water,D12,negative,,TX12_P4c,mock-ifxd,veh_water,3,4.51
