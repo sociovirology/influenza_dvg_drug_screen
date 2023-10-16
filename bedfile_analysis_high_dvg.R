@@ -252,7 +252,7 @@ for (file in file_names) {
 }
 
 #Name columns
-colnames(per_segment_reads) <- c("sample", "reference", "total_mapped_reads")
+colnames(per_segment_reads) <- c("sample", "reference", "primary_mapped_reads")
 
 #Clean up the filename, remove path
 per_segment_reads$sample <- gsub("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/read_counts//","", per_segment_reads$sample)
@@ -274,16 +274,17 @@ per_segment <- recombinations %>%
 per_segment <- left_join(per_segment, per_segment_reads, by = c("sample", "reference"))
 
 #And now calculate a DVG to SVG ratio NOTE!!! This calculation has changed as of Oct 11 because
- #I now have only primary reads mapping in the read counts, which means total is the per_segment + DVGs
+ #I now have only primary reads mapping in the read counts, which means total is the primary_mapped_reads + total_dvg_reads
 per_segment <- per_segment %>% 
-  mutate(dvg_svg_prop = total_dvg_reads / (total_mapped_reads+total_dvg_reads)) %>%
+  mutate(total_reads = primary_mapped_reads+total_dvg_reads) %>%
+  mutate(dvg_svg_prop = total_dvg_reads / (primary_mapped_reads+total_dvg_reads)) %>%
   mutate(dvg_svg_perc = dvg_svg_prop*100)
 
 #Now join with data tables
 #sample_data <- read.csv("~/Dropbox/mixtup/Documentos/ucdavis/papers/minion_genome_sequencing/minion_flu_seq/data/ile_double_umi_runA/sample_data .csv")
 
 #Adjust columns to match for join
-colnames(per_segment) <- c("sample", "reference", "total_dvg_reads", "total_mapped_reads", "dvg_svg_prop", "dvg_svg_perc")
+colnames(per_segment) <- c("sample", "reference", "total_dvg_reads", "primary_mapped_reads", "total_reads", "dvg_svg_prop", "dvg_svg_perc")
 
 #Join sample
 per_segment <- left_join(per_segment, sample_data, by = c("sample"))
@@ -318,6 +319,35 @@ ggplot(per_segment, aes(x = reference, y = average_perc, color = treatment)) +
   theme_classic(base_size = 18) +
   facet_wrap(~ treatment)
 
-#Something is definitely weird because I can't get more recombinations than reads, right?
-#Also Pa shouldn't grow at all according to this plot
+#Let's do some sanity checks on DVG and read counts
+
+#What do raw values look like for DVGs 
+ggplot(per_segment, aes(x = sample, y = total_dvg_reads, color = treatment)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~ reference)
+#barcode91 looks low in all of those, but in general all of these are looking 
+
+#What about percentage? 
+ggplot(per_segment, aes(x = sample, y = dvg_svg_perc, color = treatment)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~ reference)
+#lol barcode91 now jumps out as one of the larger ones 
+
+#Let's also look at total reads here
+ggplot(per_segment, aes(x = sample, y = total_reads, color = treatment)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~ reference)
+
+#In the above, we also need to check how do quality control parameters change this
+ #Might require using controls to benchmark the criteria for analyses, using the correlation BUT
+  #do we have any technical replicates here? 
+  #if not, need to use size and RSC's to make some good guesses as to which are valid
+
+#Next steps are to look at specific deletions:
+ #What are common deletions across all samples?
+ #Which are deletions shared with DMSO sample?
+ #Which are well-supported (RSC, present in replicates), unique deletions in specific treatments
 
