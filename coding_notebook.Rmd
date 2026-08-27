@@ -448,9 +448,8 @@ vi ca_virema.sh
 ```{bash}
 #!/usr/bin/env bash
 #SBATCH -c48
-#SBATCH --mem=10GB
-#SBATCH --time=12:00:00
-#SBATCH -w c-7-70
+#SBATCH --mem=250GB
+#SBATCH --time=24:00:00
 
 # we want the job to be named "myMatlabTest" rather than something generated
 # from the script name. This will affect the name of the job as reported
@@ -477,7 +476,7 @@ module load parallel/20220522
 
 #Working directory
 #Change into working directory
-/scratch/dvg_drug_screen_ile_v2 
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2 
 
 #Run once
 #mkdir virema_output
@@ -486,11 +485,13 @@ module load parallel/20220522
 #Load the environment for virema!
 conda activate longread_UMI_DVG
 
-cat ca_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+cat ca_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir sam_virema_output/{.}_deduplicated_bwa --Output_Tag {.}_deduplicated_bwa --Aligner bwa --ErrorDensity 25,2'
 
 #Let us know it's done
 echo "Finished!"
 ```
+
+
 
 Check on status
 
@@ -502,9 +503,9 @@ sbatch ca_virema.sh
 squeue -u sldmunoz
 
 #See if Virema is running
-ls virema_output/barcode*_deduplicated_minimap/ -al
+ls sam_virema_output/barcode*_deduplicated_bwa/ -al
 
-ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
+ls virema_output/barcode*_deduplicated_bwa/BED_Files/barcode*_deduplicated_bwa_Virus_Recombination_Results.bed
 
 ```
 
@@ -515,14 +516,13 @@ vi tx_virema.sh
 ```{bash}
 #!/usr/bin/env bash
 #SBATCH -c48
-#SBATCH --mem=50GB
-#SBATCH --time=12:00:00
-#SBATCH -w c-7-70
+#SBATCH --mem=250GB
+#SBATCH --time=24:00:00
 
 # we want the job to be named "myMatlabTest" rather than something generated
 # from the script name. This will affect the name of the job as reported
 # by squeue:
-#SBATCH --job-name=tx_virema
+#SBATCH --job-name=ca_virema
 #SBATCH --output=slurm_%j.out
 
 # when the job ends, send me an email at this email address.
@@ -544,7 +544,7 @@ module load parallel/20220522
 
 #Working directory
 #Change into working directory
-/scratch/dvg_drug_screen_ile_v2 
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2 
 
 #Run once
 #mkdir virema_output
@@ -553,7 +553,7 @@ module load parallel/20220522
 #Load the environment for virema!
 conda activate longread_UMI_DVG
 
-cat tx_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_deduplicated_minimap --Output_Tag {.}_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2'
+cat tx_reference_samples.txt | parallel -j +0 --progress 'python ~/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir sam_virema_output/{.}_deduplicated_bwa --Output_Tag {.}_deduplicated_bwa --Aligner bwa --ErrorDensity 25,2'
 
 #Let us know it's done
 echo "Finished!"
@@ -571,9 +571,9 @@ squeue -u sldmunoz
 #See if Virema is running
 ls virema_output/barcode*_deduplicated_minimap/ -al
 
-ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed
 
-ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al | wc -l
+ls virema_output/barcode*_deduplicated_minimap/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al | wc -l
 
 
 ls virema_output/barcode*_deduplicated_minimap*/BED_Files/barcode*_deduplicated_minimap_Virus_Recombination_Results.bed -al
@@ -736,6 +736,83 @@ samtools idxstats deduplicated_umi_annotated_barcode56.sorted.bam | cut -f 1,3 >
 
 ```
 
+Nov 2, 2023
+Check if Minimap is actually running
+
+Using barcode 49 as an example
+
+```{bash}
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
+
+vi ca_reference_samples.txt
+#only add barcode49
+
+vi ca_virema.sh
+
+#Now running the same but changing aligner to bowtie and output directory
+```
+
+Aaaaaaargh this has never been running MiniMap!
+
+```{bash}
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
+
+
+
+#Slurm interactive
+srun -c 1 -t 12:00:00 --mem=10000 --pty /bin/bash
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+#Have to load conda as a module
+module load conda/base
+
+python ~/applications/ViReMaMinimap2/src/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta barcode49_trimmed_deduplicated_umi_annotated.fastq barcode49_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/barcode49_deduplicated_minimap --Output_Tag barcode49_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2
+#With the padded both sides reference it "works", but gives this message after only 2 iterations [WARNING] failed to parse the first FASTA/FASTQ record but exits gracefully
+
+python ~/applications/ViReMaMinimap2/src/ViReMa_0.25/ViReMa.py shared/ca09_reference.fasta barcode49_trimmed_deduplicated_umi_annotated.fastq barcode49_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/barcode49_deduplicated_minimap --Output_Tag barcode49_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2
+#With no pads, similar error, but then not graceful exit
+
+#Traceback (most recent call last):
+#  File "/home/sldmunoz/applications/ViReMaMinimap2/src/ViReMa_0.25/ViReMa.py", line 1300, in <module>
+#    ResultsSort(cfg.Output_Dir + cfg.File3)
+#  File "/home/sldmunoz/applications/ViReMaMinimap2/src/ViReMa_0.25/Compiler_Module.py", line 1030, in ResultsSort
+#    line = RecreateOldFormatfromSAM(lines)
+#  File "/home/sldmunoz/applications/ViReMaMinimap2/src/ViReMa_0.25/Compiler_Module.py", line 604, in RecreateOldFormatfromSAM
+#    FindCuttingSitesfromCIGAR(Seg[5], Start, cfg.Seed, Ref + '_RevStrand')
+#  File "/home/sldmunoz/applications/ViReMaMinimap2/src/ViReMa_0.25/Compiler_Module.py", line 743, in FindCuttingSitesfromCIGAR
+#    cfg.RefsLib1_CuttingSites[Ref][i] += 1
+#IndexError: index 2342 is out of bounds for axis 0 with size 2342
+
+#Now try padded on just one side as recommended
+python ~/applications/ViReMaMinimap2/src/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded.fasta barcode49_trimmed_deduplicated_umi_annotated.fastq barcode49_deduplicated_minimap.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/barcode49_deduplicated_minimap --Output_Tag barcode49_deduplicated_minimap --Aligner minimap2 --ErrorDensity 25,2
+
+
+```
+
+Looks like ViReMa is expecting a pad but maybe on just one side?
+
+Nov 9
+Aaaaaaargh this has never been running even BWA on the HPC Franklin
+
+I'm just going to run the scripts for all of them using BWA
+
+```{bash}
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
+
+mkdir sam_virema_output
+
+ 
+
+```
+
+
+
+###########################################################################
+
+
+
 
 Now let's go to R to check out the results. Here we will 
 
@@ -784,4 +861,35 @@ awk '/^>/ {printf("\n%s\n",$0);next;} { printf("%s",$0);}  END {printf("\n");}' 
 
 ```
 
+
+
+```{bash}
+
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output_no_RNE 
+mkdir adjusted_bedfiles
+
+ls barcode*_1-25/BED_Files/*Virus_Recombination_Results.bed
+
+cp barcode*_1-25/BED_Files/*Virus_Recombination_Results.bed adjusted_bedfiles/ 
+
+cd adjusted_bedfiles/
+
+for file in *_Virus_Recombination_Results.bed;
+do
+  prefix=${file%_Virus_Recombination_Results.bed}
+  
+  #Need to adjust bedfile
+  awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' ${file} > ${prefix}_adjusted_Virus_Recombination_Results.bed
+  
+  #Fix the first line of the BEDfile
+  var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
+sed -i "1s/.*/$var/" ${prefix}_adjusted_Virus_Recombination_Results.bed
+done
+
+
+#Download locally
+scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/home/sldmunoz/longread_UMI_DVG/dvg_drug_screen_ile_v2/virema_output/adjusted_bedfiles/*.bed  /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/virema_output/adjusted_bedfiles/
+
+
+```
 

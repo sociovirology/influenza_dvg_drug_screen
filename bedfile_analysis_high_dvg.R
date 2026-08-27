@@ -15,8 +15,8 @@ library(GGally)
 
 #Now recombination plot start from scratch to include only select barcodes
 #Get the list of bedfiles
-file_names <- list.files("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/adjusted_bedfiles", "*_adjusted_deduplicated_minimap_Virus_Recombination_Results.bed", full.names = T)
-file_names <- file_names[25:40]
+file_names <- list.files("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/adjusted_bedfiles_no_readnames_may2024", "*_Virus_Recombination_Results.bed", full.names = T)
+file_names <- file_names[-7]
 
 recombinations_bedfile <- NULL
 for (file in file_names) {
@@ -30,8 +30,8 @@ for (file in file_names) {
 colnames(recombinations_bedfile) <- c("reference", "start", "stop", "event_type", "count", "sense", "5_reads", "3_reads", "5_ref_sequence", "3_ref_sequence", "sample")
 
 #Clean up the filename, remove path
-recombinations_bedfile$sample <- gsub("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/adjusted_bedfiles/","", recombinations_bedfile$sample)
-recombinations_bedfile$sample <- gsub("_adjusted_deduplicated_minimap_Virus_Recombination_Results.bed","", recombinations_bedfile$sample)
+recombinations_bedfile$sample <- gsub("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/adjusted_bedfiles_no_readnames_may2024/","", recombinations_bedfile$sample)
+recombinations_bedfile$sample <- gsub("_1-25_adjusted_Virus_Recombination_Results.bed","", recombinations_bedfile$sample)
 
 #Note this doesn't include isolates, so need to update code to compare across isolates
 recombinations <- recombinations_bedfile %>% group_by(reference, start, stop, event_type) %>% 
@@ -171,8 +171,8 @@ ggparcoord(subset(recombinations_scaled_positive_sense, reference == "PB2|Segmen
 ggparcoord(subset(recombinations_scaled_positive_sense, reference == "PB1|Segment:2"), columns = 2:3, scale = "globalminmax")
 
 #Two adjustments to match Alnaji et al format 
-ggparcoord(subset(recombinations_scaled_positive_sense, size > 190 & reference == "PB1|Segment:2" & sample == "barcode56"), columns = c(3, 2), scale = "globalminmax") + coord_flip()
-ggparcoord(subset(recombinations_scaled_positive_sense, size > 190 & reference == "PA|Segment:3" & sample == "barcode56"), columns = c(3, 2), scale = "globalminmax") + coord_flip()
+ggparcoord(subset(recombinations_scaled_positive_sense, size > 190 & reference == "PB1|Segment:2" & sample == "barcode95"), columns = c(3, 2), scale = "globalminmax") + coord_flip()
+ggparcoord(subset(recombinations_scaled_positive_sense, size > 190 & reference == "PA|Segment:3" & sample == "barcode95"), columns = c(3, 2), scale = "globalminmax") + coord_flip()
 
 #Let's take a peek at the recombination plot now
 ggplot(subset(recombinations_scaled_positive_sense, size > 190 & reference == "PB2|Segment:1"), aes(x = stop, y = start, color = number_of_samples)) +
@@ -223,6 +223,8 @@ ggplot(subset(recombinations, size > 190), aes(x = size)) + geom_histogram() + g
 ggplot(subset(recombinations, size < 190), aes(x = size)) + geom_histogram() + geom_vline(xintercept = c(150, 170, 190), color = "red") + facet_wrap(~ sample_name)
 #Very interesting, the smaller deletions are way, way more common and they drop off in size
 #The pattern is almost identical in each of those samples
+
+
 
 ##### Are the small deletions real? #####
 #After talking with Chris there are a few things to check into to see if the small deletions are real
@@ -351,3 +353,34 @@ ggplot(per_segment, aes(x = sample, y = total_reads, color = treatment)) +
  #Which are deletions shared with DMSO sample?
  #Which are well-supported (RSC, present in replicates), unique deletions in specific treatments
 
+##### More Specific to this paper DVG Drug Screen #####
+
+#Let's take a look at the segment DVG plots and color dots to see if we get any readily visible patters
+ggplot(subset(recombinations_scaled_positive_sense, size > 190), aes(x = stop, y = start, color = treatment)) +
+  geom_point(aes(size = count, shape = strain),alpha = 0.6) + 
+  #scale_size_continuous("Read Count",range = c(0.4, 3)) +
+  coord_cartesian() +
+  ylab("Donor Site") +
+  xlab("Acceptor Site") +
+  theme_classic(base_size = 18) +
+  #scale_color_gradient("# of Isolates", low = "#87f6ff", high = "#f786ff") +
+  facet_wrap(~ reference, scales = "free")
+
+#A couple of tests
+model0 <- lm(size ~ treatment, data = recombinations_scaled_positive_sense)
+summary(model0)
+summary.aov(model0)
+
+ggplot(recombinations_scaled_positive_sense, aes(x = treatment, y = size)) +
+  geom_point(aes(color = count),alpha = 0.6) + 
+  coord_cartesian() +
+  ylab("Size of Deletion") +
+  xlab("Treatment") +
+  theme_classic(base_size = 18) +
+  scale_color_gradient("# of Isolates", low = "#87f6ff", high = "#f786ff") +
+  facet_wrap(~ reference, scales = "free")
+
+
+
+
+##### / More Specific to this paper DVG Drug Screen #####

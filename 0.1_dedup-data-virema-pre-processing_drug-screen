@@ -1,0 +1,636 @@
+GIVEN:		UMI-deduplicated .fastq's
+FIND:		ViReMa -ReadNamesEntry output
+
+
+
+# ViReMa ver 0.25 OVERALL STEPS
+
+1. Download _ViReMa_
+
+2. Install required pgms
+	_python_ ; _bwa_
+
+3.1. Secure your Virus reference genome fasta
+	- Add poly-A padding to ea sgmt of the reference.
+	Padding must be longer than the read being aligned 
+	[just make it the length of the refseq sgmt]
+	- ViReMa will auto-generate an index file when it
+	runs if virus reference genome index is absent
+
+3.2. [optional]
+	If you're including a host reference genome fasta:
+	- add poly-A padding as well (see above)
+	- you must pre-build it's index bowtie or bwa
+	use ^bowtie-build ...^ cmd to create an index file
+
+4. prep your input reads
+	i.e. trim off barcodes/landingPAD/umi
+
+5. run virema from cmdLN
+
+
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+ssh ile@franklin.hpc.ucdavis.edu
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2/
+srun -t12:00:00 -c6 --mem=30000 --pty /bin/bash
+module load conda/base
+conda activate longread_UMI_DVG
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+
+# -ViReMa- -python- and -bwa- are already installed on Franklin in a conda environment
+module load conda/base
+conda activate longread_UMI_DVG
+
+
+
+# the padded ref-genomes for ca09 and tx12 are already in the shared folder
+/group/sldmunozgrp/dvg_drug_screen_ile_v2/shared
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   13753 Oct 10 13:48 ca09_reference.fasta
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   53753 Oct 10 13:48 ca09_reference_padded_both_sides.fasta
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   13753 Oct 10 13:48 ca09_reference_uni.fasta
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   13747 Oct 10 13:48 tx12_reference.fasta
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   53747 Oct 10 13:48 tx12_reference_padded_both_sides.fasta
+		-rw-r--r-- 1 sldmunoz sldmunozgrp   13747 Oct 10 13:48 tx12_reference_uni.fasta
+
+
+
+# The deduplicated FASTQ's from the drug screen run are available on Franklin at:
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2/
+
+
+
+# fastqs have already been trimmed; naming format is below...using sample _83_ as an example:
+barcode83_trimmed_deduplicated_umi_annotated.fastq
+
+
+
+# decide your ViReMa parameters
+--Seed 25 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry		4% error tolerance...artefacts
+--Seed 30 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 3,30 -ReadNamesEntry		10% error...testing
+
+
+
+# before you fire off the sbatch job, test your command on 1000 reads from any fastq
+# we use sample83 for this test...it is a ca09 sample so use the ca ref-genome in the ViReMa command
+# download the ViReMa output .sam and view in a SAM file viewer to confirm the test run was successful
+
+head -n1000 barcode83_trimmed_deduplicated_umi_annotated.fastq > barcode83_test.fastq
+
+mkdir virema_output
+
+python /group/sldmunozgrp/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta barcode83_test.fastq test_bcd83_1-25_RNE.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/test_bcd83_1-25_RNE --Output_Tag test_bcd83_1-25_RNE --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry
+
+scp -rp ile@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output/test_bcd83_1-25_RNE . 
+
+
+# view .sam in a SAM file viewer to confirm the test run was successful
+# ALL CLEAR
+# proceed with sbatch jobscripts for ViReMa runs with _parallel_
+
+
+# to run ^sbatch jobscript.sh^ , first save the job script w/ _vim_ ... _vi_ in this case:
+# you'll need 1ea jobscript since the ca and tx ViReMa commands are different, on account of the ref-genome being aligned against
+
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# --Seed 25 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry		
+# 4% error tolerance...artefacts
+
+
+
+vi ca_virema_1-25_RNE.sh
+
+#!/usr/bin/env bash
+#SBATCH -c48
+#SBATCH --mem=250GB
+#SBATCH --time=16:00:00
+
+# we want the job to be named "myMatlabTestx" rather than something generated
+# from the script name. This will affect the name of the job as reported
+# by squeue:
+#SBATCH --job-name=ca_virema_1-25_RNE
+#SBATCH --output=slurm_%j.out
+
+# when the job ends, send me an email at this email address.
+# replace with your email address, and uncomment that line if you really need to receive an email.
+#SBATCH --mail-type=END
+#SBATCH --mail-user=ioagu@ucdavis.edu
+
+# once the first non-comment, non-SBATCH-directive line is encountered, SLURM
+# stops looking for SBATCH directives. The remainder of the script is  executed
+# as a normal Unix shell script
+
+# first we ensure a clean running environment:
+module purge
+# and load the module for the software we are using:
+#Have to load conda as a module
+module load conda/base
+#Load GNU parallel
+module load parallel/20220522
+
+#Working directory
+#Change into working directory
+/group/sldmunozgrp/dvg_drug_screen_ile_v2 
+
+#Run once
+#mkdir virema_output
+#mkdir virema_output/adjusted_bedfiles
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+cat ca_reference_samples.txt | parallel -j +0 --progress 'python /group/sldmunozgrp/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_1-25_RNE.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_1-25_RNE --Output_Tag {.}_1-25_RNE --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry'
+
+#Let us know it's done
+echo "Finished!"
+
+
+
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# --Seed 25 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry		4% error tolerance...artefacts
+
+
+vi tx_virema_1-25_RNE.sh
+
+#!/usr/bin/env bash
+#SBATCH -c48
+#SBATCH --mem=250GB
+#SBATCH --time=16:00:00
+
+# we want the job to be named "myMatlabTestx" rather than something generated
+# from the script name. This will affect the name of the job as reported
+# by squeue:
+#SBATCH --job-name=tx_virema_RNE
+#SBATCH --output=slurm_%j.out
+
+# when the job ends, send me an email at this email address.
+# replace with your email address, and uncomment that line if you really need to receive an email.
+#SBATCH --mail-type=END
+#SBATCH --mail-user=ioagu@ucdavis.edu
+
+# once the first non-comment, non-SBATCH-directive line is encountered, SLURM
+# stops looking for SBATCH directives. The remainder of the script is  executed
+# as a normal Unix shell script
+
+# first we ensure a clean running environment:
+module purge
+# and load the module for the software we are using:
+#Have to load conda as a module
+module load conda/base
+#Load GNU parallel
+module load parallel/20220522
+
+#Working directory
+#Change into working directory
+/group/sldmunozgrp/dvg_drug_screen_ile_v2 
+
+#Run once
+#mkdir virema_output
+#mkdir virema_output/adjusted_bedfiles
+
+#Load the environment for virema!
+conda activate longread_UMI_DVG
+
+cat tx_reference_samples.txt | parallel -j +0 --progress 'python /group/sldmunozgrp/applications/ViReMa_0.25/ViReMa.py shared/tx12_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_1-25_RNE.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output/{.}_1-25_RNE --Output_Tag {.}_1-25_RNE --Aligner bwa --ErrorDensity 1,25 -ReadNamesEntry'
+
+#Let us know it's done
+echo "Finished!"
+
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# --Seed 30 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 3,30 -ReadNamesEntry		10% error...test run
+
+
+
+vi ca_virema_3-30_RNE.sh
+
+#!/usr/bin/env bash
+#SBATCH -c48
+...
+
+
+#Let us know it's done
+echo "Finished!"
+
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# --Seed 30 --MicroInDel_Length 20 --Aligner bwa --ErrorDensity 3,30 -ReadNamesEntry		10% error...test run
+
+
+vi tx_virema_3-30_RNE.sh
+
+#!/usr/bin/env bash
+#SBATCH -c48
+...
+
+
+#Let us know it's done
+echo "Finished!"
+
+______________________________________________________________________________________________________________
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+# now submit the batch job
+sbatch ca_virema_1-25_RNE.sh
+sbatch tx_virema_1-25_RNE.sh
+
+
+# monitor the runs w/the ff cmd's:
+squeue					all jobs currently running on cluster
+squeue -u ile				your job(s) currently running on cluster
+squeue --me				same as above
+scontrol show job 420469		details on currently running jobs
+
+the 1-25_RNE ca and tx jobID #s are respectively 420469 and 420470
+the 3-30 ca and tx jobID #s are respectively ###### and ######
+
+# NOTE: slurm will output STDERR messages into the working directory the sbatch job was run as a .out txt file containing the JobID# 
+#	e.g.	slurm420472.out		slurm420469.out		etc
+#	these contain any error msg ViReMa spits out e.g. the mock-infection samples that have no reads causes a "Header Error" in ViReMa
+
+
+# cancel an _sbatch_ job w/ scancel and the JobID number
+scancel <JobID>
+
+_________________________________________________________________________________________________________________________________
+
+
+
+
+
+# for_loops for the ViReMa commands had to be different for ca and tx because each needed to be aligned to a different reference genome, so the 1ea code for ca and tx needed to reflect that difference.
+# but from this point, the same for_loop commands will be run on all ViReMa output files, so I'm making a new filename text file that combines the filenames from the CA09 groups and TX12 groups i.e. 
+#	from ca_reference_samples.txt		and	tx_reference_samples.txt
+#	to	catx_reference_samples.txtc
+
+vi catx_reference_samples.txt
+
+barcode01
+barcode02
+barcode03
+barcode04
+barcode05
+barcode06
+barcode07
+barcode08
+barcode09
+barcode10
+barcode11
+barcode12
+barcode13
+barcode14
+barcode15
+barcode16
+barcode17
+barcode18
+barcode19
+barcode20
+barcode21
+barcode22
+barcode23
+barcode24
+barcode25
+barcode26
+barcode27
+barcode28
+barcode29
+barcode30
+barcode31
+barcode32
+barcode33
+barcode34
+barcode35
+barcode36
+barcode37
+barcode38
+barcode39
+barcode40
+barcode41
+barcode42
+barcode43
+barcode44
+barcode45
+barcode46
+barcode47
+barcode48
+barcode49
+barcode50
+barcode51
+barcode52
+barcode53
+barcode54
+barcode55
+barcode56
+barcode57
+barcode58
+barcode59
+barcode60
+barcode61
+barcode62
+barcode63
+barcode64
+barcode65
+barcode66
+barcode67
+barcode68
+barcode69
+barcode70
+barcode71
+barcode72
+barcode73
+barcode74
+barcode75
+barcode76
+barcode77
+barcode78
+barcode79
+barcode80
+barcode81
+barcode82
+barcode83
+barcode84
+barcode85
+barcode86
+barcode87
+barcode88
+barcode89
+barcode90
+barcode91
+barcode92
+barcode93
+barcode94
+barcode95
+barcode96
+
+
+
+
+
+
+
+ADDITIONAL post-ViReMa ROEs
+
+From this point there will be two computational paths:
+	i.	individual recombination events
+	ii.	collapsed dvg events (AKA multi-reco dvg)
+
+a table of indiv reco events may be processed from the Virus_Recombination_Results.bed file
+	...the refseq padding will be subtracted w/AWK prior to import in2 -R-
+
+a separate DVG table will be processed from the Virus_Recombination_Results.txt file 
+	...REQUIRES rerunning ViReMa w/ the -ReadNamesEntry switch
+	...this table is necessary because some DVGs contain multiple reco events, so 'dvg' and 'reco' are not interchangeable objects
+
+
+
+
+
+
+____________________________________________________________________________________________________________________
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗	dvg table	...frm _ReadNamesEntry ViReMa .txt	⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+
+
+_________________________________________________________________________________________________________
+\\\\\\\\\\\\\\\\\\\\\\\\\\\		for_loop version	/////////////////////////////////////////
+#
+# now, to create a for_loop to perform this transformation on our data on the cluster
+#
+#
+# create storage location for dvg.txt files...also the pre-collapsed, double-sorted reco.txt files
+#	for simplicity, I named + placed them similarly to the "adjusted_bedfiles" 
+#
+mkdir virema_output/reco_pos
+mkdir virema_output/reco_sorted_txtfiles
+mkdir virema_output/dvg_txtfiles
+
+
+# Save the AWK program file in the cluster as 'rne_reformat_1.awk' ...you'll later run it w/the -f switch
+______________________________________
+vi rne_reformat_1.awk
+
+
+#!/usr/bin/awk -f
+
+/^@EndofLibrary/ {
+    next
+}
+
+/^@NewLibrary/ {
+    entry = $0
+    next
+}
+
+{
+    details = $0
+    getline fuzz_id
+    print entry "\t" details "\t" fuzz_id
+}
+
+_________________________________________________
+
+
+# for_loop time
+# REMINDER: the barcode names are listed in a .txt called		ca_reference_samples.txt	and	tx_reference_samples.txt
+#	and in an earlier step, we consolidated all barcode names in2 a single .txt for simplicity		catx_reference_samples.txt
+#
+# expect AWK error msg's for samples that contain no virus at all i.e. mock-infection ctrls, as ViReMa doesn't output a .bed or .txt for them
+#		CA09 mock-ifxn ctrls are barcodes	52 56 60
+#		TX12 mock-ifxn ctrls are barcodes	40 44 48
+#	if these samples have virus then you have either:
+		i. contamination during wetlab, or 
+		ii. "tunneling" from lax demultiplexing
+#
+#
+# ALSO, NO NEED FOR _srun_ ... the head node easily handles these for_loops
+-------------------------------------------------------------------
+
+for file in `cat catx_reference_samples.txt`;
+do
+  prefix=${file%.fastq}
+  
+  awk -f rne_reformat_1.awk virema_output/${prefix}_1-25_RNE/${prefix}_1-25_RNE_Virus_Recombination_Results.txt | awk -F'\t' '{ for (i=3; i<=NF; i++) print $1, $2, $i }' | awk ' /_Fuzz=/ {print $2, $3, $4}'  |  sed 's/_to_/ /g'  |  sed 's/_#_/ /g'  |  awk ' {print $1, $2, $3, $4, $6 }  ' |  awk ' {print $0, sqrt(($3 - $4)^2)} '  |sort -k5,5 -k3,3n -t' '  | tee virema_output/reco_pos/${prefix}_reco_pos.txt  |  awk ' {print $1, $2, $5, $6 }  '  |   tee virema_output/reco_sorted_txtfiles/${prefix}_reco_sorted.txt   |  awk '{key=$1 OFS $2 OFS $3; data[key]=data[key] OFS $NF} END {for (k in data) print k data[k]}'  |  awk '{ for (i = 4; i <= NF; i++) if ($i !~ /^[0-9]+$/) $i = 0; for (i = NF + 1; i <= 9; i++) $i = 0 } 1' OFS="\t"  > virema_output/dvg_txtfiles/${prefix}_dvg.txt
+
+done
+
+
+#
+#
+# received expected error msg for barcodes...
+
+awk: fatal: cannot open file `virema_output/barcode48_1-25_RNE/barcode48_1-25_RNE_Virus_Recombination_Results.txt' for reading: No such file or directory
+awk: fatal: cannot open file `virema_output/barcode52_1-25_RNE/barcode52_1-25_RNE_Virus_Recombination_Results.txt' for reading: No such file or directory
+awk: fatal: cannot open file `virema_output/barcode60_1-25_RNE/barcode60_1-25_RNE_Virus_Recombination_Results.txt' for reading: No such file or directory
+i
+
+
+#	TX12:
+#		barcode48 errored like it should
+#		but barcodes 40 + 44 didn't didn't error...meaning they have reads when they shouldn't
+#		checked out fastq's...have like 2-3 reads in ea of them, so it's most likely barcode tunneling...the count is insignificant
+#
+#	There used to be an error for barcode 9 but it's fixed...
+#		one read in the fastq had a garbled basecall output which caused ViReMa to error, so I tracked down +deleted that single read
+#
+#	CA09:
+#		barcodes 52 + 60 errored like they should
+#		but barcode 56 didn't error...meaning it has reads when it shouldn't
+#		checked out fastq's...has 3 reads in it, so it's most likely barcode tunneling...the count is insignificant
+#
+
+
+------------------------------------------------
+# We have our dvg.txt
+# we also have the reco_sorted.txt in case I need to transform it a different way before import into -R-
+
+# QC the reco.txt and dvg.txt outputs
+#	there should be more records in the reco doc than the dvg doc
+#
+cat virema_output/dvg_txtfiles/*.txt > dvg_cat.txt
+cat virema_output/reco_sorted_txtfiles/*.txt > reco_sorted_cat.txt
+wc -l dvg_cat.txt reco_sorted_cat.txt
+
+  132003 dvg_cat.txt
+  134131 reco_sorted_cat.txt
+  266134 total
+
+#	ALL CLEAR
+
+# the deletion sizes start in clm#4 and extend rightwards
+# you can scan rightwards with the following sets of commands to see which reads have multiple deletions
+# each of columns 4    5    6    7    8    9 are single deletions within the single read... 
+#                del1 del2 del3 del4 del5 del6
+awk ' $4 > 0' dvg_cat.txt | less -N			132002 reads
+awk ' $5 > 0' dvg_cat.txt | less -N			1867 reads
+awk ' $6 > 0' dvg_cat.txt | less -N			178 reads
+awk ' $7 > 0' dvg_cat.txt | less -N			58 reads
+awk ' $8 > 0' dvg_cat.txt | less -N			23 reads
+awk ' $9 > 0' dvg_cat.txt | less -N			2 reads
+
+# we see that some of the deletion sizes are irreconcilable. 
+#    here are the two reads with supposedly 6x deletions, but in both cases the sum of the deletions is greater than the total length of the sgmt
+PB1|Segment:2_RevStrand PB1|Segment:2_RevStrand 3e6aec76-67cb-40f3-8bbe-462556746624_GGTGTTTAATTA_Fuzz= 1395 1380 49 498 944 934
+PA|Segment:3_RevStrand PA|Segment:3_RevStrand 912b2c78-dd57-4912-9f95-fdd0b59e074d_AAGTAAATTACT_Fuzz= 1915 60 762 254 1649 1903
+
+
+In a different experiment (Alpelisib dosing screen) I tested a ViReMa --ErrorDensity 3,30. THere was a mild reduction in flagged recombination events, but these irreconcilable reco events were still present, so the solution must lay with a different switch/parameter setting
+####  SO JUST PRESS-ON WITH 1,25  FOR NOW
+
+
+
+
+
+
+# Transfer (_scp_) relevant .bed and .txt files from the virema_output folder on the cluster to your remote machine for rstudio anas
+
+scp -rp ile@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output/dvg_txtfiles .
+scp -rp ile@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output/reco_sorted_txtfiles .
+scp -rp ile@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output/reco_pos .
+
+
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+ssh ile@franklin.hpc.ucdavis.edu
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2/
+srun -t12:00:00 -c6 --mem=30000 --pty /bin/bash
+module load conda/base
+conda activate longread_UMI_DVG
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+
+
+
+______________________________________________________________________________________________________________________________
+⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗	svg table	⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗⧗
+
+
+
+
+# now to bulk process fastq's from all barcodes to get SVGs
+# SVGs counts will be determined via sequence alignment w/ _bwa_ 
+# bwa index -> bwa alnt -> awk pull
+#     _bwa_ basic syntax
+bwa index ref.fa
+bwa mem ref.fa reads.fq > aln-se.sam
+
+___________________
+# [one-time] create bwa index of unpadded ref-genomes for ca + tx
+
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
+mkdir SAM_bwa
+mkdir SAM_bwa/SAM_bwa_svg
+
+bwa index shared/ca09_reference.fasta 
+bwa index shared/tx12_reference.fasta
+
+#__________________
+# don't do sequence alignments in the head node...call resources
+# ALERT!!!  After you initialize _srun_  you'll have to reactivate _conda_
+
+srun -t12:00:00 -c6 --mem=30000 --pty /bin/bash
+module load conda/base
+conda activate longread_UMI_DVG
+
+proceed with alignment of the trimmed fastq's...NOT the untrimmed versions
+	use	${prefix}_trimmed_deduplicated_umi_annotated.fastq
+	NOT	${prefix}_deduplicated_umi_annotated.fastq
+____________________
+# run bwa alignment for ca09 samples
+
+for file in `cat ca_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  bwa mem shared/ca09_reference.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq  > SAM_bwa/${prefix}_trimmed_deduplicated_umi_annotated_bwa.sam
+ 
+done
+
+___________________
+# run bwa alignment for tx12 samples
+
+for file in `cat tx_reference_samples.txt`;
+do
+  prefix=${file%.fastq} #Get file name without extension
+  bwa mem shared/tx12_reference.fasta ${prefix}_trimmed_deduplicated_umi_annotated.fastq  > SAM_bwa/${prefix}_trimmed_deduplicated_umi_annotated_bwa.sam
+ 
+done
+
+___________________
+# do an awk pull of SVGs for ca09 samples
+
+for file in `cat ca_reference_samples.txt`;
+do
+  prefix=${file%.fastq}
+  
+  awk -F'\t'  '$2 == 0 || $2 == 16 {print $0}' OFS='\t' SAM_bwa/${prefix}_trimmed_deduplicated_umi_annotated_bwa.sam | awk -F'\t'  ' { if ( ($3 ~ /PB2|Segment:1/ && length($10) > 2241) && ($3 ~ /PB2|Segment:1/ && length($10) < 2441)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /PB1|Segment:2/ && length($10) > 2241) && ($3 ~ /PB1|Segment:2/ && length($10) < 2441)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /PA|Segment:3/ && length($10) > 2133) && ($3 ~ /PA|Segment:3/ && length($10) < 2333)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /HA|Segment:4/ && length($10) > 1677) && ($3 ~ /HA|Segment:4/ && length($10) < 1877)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NP|Segment:1/ && length($10) > 1465) && ($3 ~ /NP|Segment:1/ && length($10) < 1655)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NA|Segment:1/ && length($10) > 1358) && ($3 ~ /NA|Segment:1/ && length($10) < 1588)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /M|Segment:1/ && length($10) > 927) && ($3 ~ /M|Segment:1/ && length($10) < 1127)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NS|Segment:1/ && length($10) > 790) && ($3 ~ /NS|Segment:1/ && length($10) < 990)  ) print $1, $3, length($10), "SVG" }  ' OFS='\t' > SAM_bwa/SAM_bwa_svg/${prefix}_svg.txt
+
+done
+
+___________________
+# do an awk pull of SVGs for tx12 samples
+
+for file in `cat tx_reference_samples.txt`;
+do
+  prefix=${file%.fastq}
+  
+  awk -F'\t'  '$2 == 0 || $2 == 16 {print $0}' OFS='\t' SAM_bwa/${prefix}_trimmed_deduplicated_umi_annotated_bwa.sam | awk -F'\t'  ' { if ( ($3 ~ /PB2|Segment:1/ && length($10) > 2241) && ($3 ~ /PB2|Segment:1/ && length($10) < 2441)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /PB1|Segment:2/ && length($10) > 2241) && ($3 ~ /PB1|Segment:2/ && length($10) < 2441)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /PA|Segment:3/ && length($10) > 2133) && ($3 ~ /PA|Segment:3/ && length($10) < 2333)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /HA|Segment:4/ && length($10) > 1677) && ($3 ~ /HA|Segment:4/ && length($10) < 1877)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NP|Segment:1/ && length($10) > 1465) && ($3 ~ /NP|Segment:1/ && length($10) < 1655)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NA|Segment:1/ && length($10) > 1358) && ($3 ~ /NA|Segment:1/ && length($10) < 1588)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /M|Segment:1/ && length($10) > 927) && ($3 ~ /M|Segment:1/ && length($10) < 1127)  ) print $1, $3, length($10), "SVG" ; else if ( ($3 ~ /NS|Segment:1/ && length($10) > 790) && ($3 ~ /NS|Segment:1/ && length($10) < 990)  ) print $1, $3, length($10), "SVG" }  ' OFS='\t' > SAM_bwa/SAM_bwa_svg/${prefix}_svg.txt
+
+done
+
+
+
+___________________
+# Transfer (_scp_) relevant .bed and .txt files from the virema_output folder on the cluster to your remote machine for rstudio anas
+
+scp -rp ile@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/SAM_bwa/SAM_bwa_svg/* .
+
+ 
+
+
+
+
+
+___________________
+# Import dvg and svg .txt files into R
+

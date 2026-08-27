@@ -1,0 +1,61 @@
+#Modifying the 
+#The key things here are to remove rednames flag -ReadNamesEntry from the .sh batch files and direct all output to a new directory
+
+#There is one directory for the drug screen
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2
+
+#Copy the batch files to a new file to edit
+cp ca_virema_1-25_RNE.sh ca_virema_1-25_no_RNE.sh 
+cp tx_virema_1-25_RNE.sh ca_virema_1-25_no_RNE.sh  
+#Ignoring 3_30 files, not using those run parameters for now
+
+
+#Make a new output directory
+mkdir virema_output_no_RNE
+
+#Now let's edit the files and remove the ReadNamesEntry flag, RNE suffixes, and change the outupt directory
+
+#For example, this is the final command for the first CA09 batch file:
+# cat ca_reference_samples.txt | parallel -j +0 --progress 'python /group/sldmunozgrp/applications/ViReMa_0.25/ViReMa.py shared/ca09_reference_padded_both_sides.fasta {.}_trimmed_deduplicated_umi_annotated.fastq {.}_1-25.SAM --Seed 25 --MicroInDel_Length 20 -BED --Output_Dir virema_output_no_RNE/{.}_1-25 --Output_Tag {.}_1-25 --Aligner bwa --ErrorDensity 1,25'
+
+vi ca_virema_1-25_no_RNE.sh 
+vi tx_virema_1-25_no_RNE.sh 
+
+
+# now submit the batch jobs
+
+sbatch ca_virema_1-25_no_RNE.sh
+#Submitted batch job 833491
+
+sbatch tx_virema_1-25_no_RNE.sh
+#Submitted batch job 833492
+
+#Check on status of the BED files 
+cd virema_output_no_RNE/
+ls barcode*_1-25/BED_Files/*Virus_Recombination_Results.bed
+
+#Now let's adjust the files
+
+cd /group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output_no_RNE 
+mkdir adjusted_bedfiles
+
+ls barcode*_1-25/BED_Files/*Virus_Recombination_Results.bed
+
+cp barcode*_1-25/BED_Files/*Virus_Recombination_Results.bed adjusted_bedfiles/ 
+
+cd adjusted_bedfiles/
+
+for file in *_Virus_Recombination_Results.bed;
+do
+  prefix=${file%_Virus_Recombination_Results.bed}
+  
+  #Need to adjust bedfile
+  awk -v OFS='\t' '{print $1, $2-2500, $3-2500, $4, $5, $6, $7, $8, $9, $10}' ${file} > ${prefix}_adjusted_Virus_Recombination_Results.bed
+  
+  #Fix the first line of the BEDfile
+  var="track name=Virus_Recombinations description="Virus_Recombinations" graphType=junctions"
+sed -i "1s/.*/$var/" ${prefix}_adjusted_Virus_Recombination_Results.bed
+done
+
+#Download locally
+scp -rp sldmunoz@franklin.hpc.ucdavis.edu:/group/sldmunozgrp/dvg_drug_screen_ile_v2/virema_output_no_RNE/adjusted_bedfiles/*_adjusted_Virus_Recombination_Results.bed /Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/influenza_dvg_drug_screen/output/adjusted_bedfiles_no_readnames_may2024/
