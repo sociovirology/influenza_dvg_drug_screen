@@ -23,7 +23,7 @@ library(tidyverse)
 
 # Get the list of names of the txt files
 #file_names_dvg <- list.files("/home/ile/Desktop/play-data/virema_output_drug-screen/dvg_txtfiles", "*_dvg.txt", full.names = T)
-file_names_dvg <- list.files("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/dvg_txtfiles", "*_dvg.txt", full.names = T)
+file_names_dvg <- list.files("/Users/sociovirology/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/dvg_txtfiles", "*_dvg.txt", full.names = T)
 
 # Import
 dvg_txtfile <- NULL
@@ -66,7 +66,7 @@ dvg_txtfile <- dvg_txtfile %>%
 # The "ont.bcd" variable values have that info, but only as part of a super bulky filepath
 # The nxt two cmds successively trim the filepath until only the	_barcode##_ is rmg
 #dvg_txtfile$ont.bcd <- gsub("/home/ile/Desktop/play-data/virema_output_drug-screen/dvg_txtfiles/","", dvg_txtfile$ont.bcd)
-dvg_txtfile$ont.bcd <- gsub("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/dvg_txtfiles/","", dvg_txtfile$ont.bcd)
+dvg_txtfile$ont.bcd <- gsub("/Users/sociovirology/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/dvg_txtfiles/","", dvg_txtfile$ont.bcd)
 dvg_txtfile$ont.bcd <- gsub("_dvg.txt","", dvg_txtfile$ont.bcd)
 
 
@@ -84,8 +84,10 @@ dvg_txtfile$ont.bcd <- gsub("_dvg.txt","", dvg_txtfile$ont.bcd)
 # I'm also adding	filter(!is.na(del1))	in order to collect only records w/o _NA_ ...just a safety redundancy...so when I fuse dvg.bind with svg.bind, there will be no _NA_ cells , only _0_ 
 
 dvg.bind <- dvg_txtfile %>%
-  select(reference, reference.acceptor , read.name , del1 , del2, geno.class , ont.bcd)  %>%
+  dplyr::select(reference, reference.acceptor , read.name , del1 , del2, geno.class , ont.bcd)  %>%
   filter(!is.na(del1))
+
+
 
 
 
@@ -94,7 +96,7 @@ dvg.bind <- dvg_txtfile %>%
 #____________________________________SVG text file import_________________________________________
 
 # Get the list of names of the SVG txt files
-file_names_svg <- list.files("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/svg_txtfiles", "*_svg.txt", full.names = T)
+file_names_svg <- list.files("/Users/sociovirology/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/svg_txtfiles", "*_svg.txt", full.names = T)
 
 # Import
 svg_txtfile <- NULL
@@ -137,7 +139,7 @@ svg.bind <- svg_txtfile %>%
   mutate(del1 = 0 ) %>%
   mutate(del2 = 0 ) %>%
   mutate(reference.acceptor = NA) %>%
-  select(reference, reference.acceptor , read.name , del1 , del2, geno.class , ont.bcd)
+  dplyr::select(reference, reference.acceptor , read.name , del1 , del2, geno.class , ont.bcd)
 
 
 
