@@ -114,7 +114,7 @@ colnames(svg_txtfile) <- c("read.name", "reference", "read.lgt", "geno.class", "
 # We want the "sample" aka "ont.bcd"  variable to say what barcode the given dvg event stems frm
 # The "ont.bcd" variable values have that info, but only as part of a super bulky filepath
 # The nxt two cmds successively trim the filepath until only the	_barcode##_ is rmg
-svg_txtfile$ont.bcd <- gsub("/Users/mixtup/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/svg_txtfiles/","", svg_txtfile$ont.bcd)
+svg_txtfile$ont.bcd <- gsub("/Users/sociovirology/Dropbox/mixtup/Documentos/ucdavis/papers/dvg_drug_screen/svg_txtfiles/","", svg_txtfile$ont.bcd)
 svg_txtfile$ont.bcd <- gsub("_svg.txt","", svg_txtfile$ont.bcd)
 
 
