@@ -1911,3 +1911,18 @@ gcay.screen.count.sgmt %>%
   theme(axis.text.x = element_text(size = 10)) + 
   theme(panel.grid.major.y = element_line(color = "lightgray",size = 0.5)) +
   geom_point(aes(fill = bioreplicate), pch=21, size = 3, colour = "black") + theme(legend.position = "none") + facet_grid(host.ptg~Tx, scales = "free")
+
+#Prop DVG
+gcay.screen.count.sgmt %>%
+  filter(Tx %in%  alpelisib) %>%
+  #filter(host.ptg == "MDCK.CA09(H1N1)")  %>%
+  mutate(geno.sgmt = fct_relevel(geno.sgmt, c("PB2", "PB1", "PA",  "HA",  "NP",  "NA",  "M", "NS")))  %>%
+  ggplot(aes(x=geno.sgmt, y=prop.dvg.sgmt, color=bioreplicate)) +
+  #ylim(0, 1.0) +
+  xlab("Viral Genome Segment") +
+  #ylab("Proportion of Defective Viral Genomes (DelVGs)") +
+  theme_tufte() + 
+  theme(text = element_text(size = 18,  family="Helvetica")) + 
+  theme(axis.text.x = element_text(size = 10)) + 
+  theme(panel.grid.major.y = element_line(color = "lightgray",size = 0.5)) +
+  geom_point(aes(fill = bioreplicate), pch=21, size = 3, colour = "black") + theme(legend.position = "none") + facet_grid(host.ptg~Tx, scales = "free")
